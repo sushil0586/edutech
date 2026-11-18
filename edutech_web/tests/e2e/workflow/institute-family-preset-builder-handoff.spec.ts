@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectInstituteWorkspace } from "../helpers/navigation";
 import { fetchPresetPacks, type ExamPresetPackPayload } from "../helpers/preset-packs";
@@ -54,7 +54,7 @@ function requiredBuilderDefaults(pack: ExamPresetPackPayload) {
 }
 
 async function alignInstituteScopeWithPresetFamily(
-  page: Parameters<typeof test>[0]["page"],
+  page: Page,
   options: {
     programLabel: string;
     subjectLabel: string;

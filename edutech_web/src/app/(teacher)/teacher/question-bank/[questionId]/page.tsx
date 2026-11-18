@@ -17,6 +17,7 @@ import {
   fetchTeacherQuestionTypeRegistry,
   fetchTeacherSubjects,
   fetchTeacherTopics,
+  reportTeacherQuestionDefect,
   updateTeacherQuestion,
 } from "@/lib/api/teacher-builder";
 import { requireTeacherSession } from "@/lib/auth/session";
@@ -61,6 +62,37 @@ async function updateQuestionAction(formData: FormData) {
       `/teacher/question-bank/${questionId}?${buildQuestionBankErrorSearch(
         error,
         "Unable to update the question right now.",
+      )}`,
+    );
+  }
+}
+
+async function reportQuestionDefectAction(formData: FormData) {
+  "use server";
+
+  await requireTeacherSession();
+  const questionId = String(formData.get("question_id") ?? "").trim();
+  const category = String(formData.get("category") ?? "").trim();
+  const description = String(formData.get("description") ?? "").trim();
+  if (!questionId || !category || description.length < 10) {
+    redirect(
+      `/teacher/question-bank/${questionId}?error=${encodeURIComponent(
+        "Choose an issue type and describe the problem in at least 10 characters.",
+      )}`,
+    );
+  }
+  try {
+    await reportTeacherQuestionDefect({ question: questionId, category, description });
+    redirect(
+      `/teacher/question-bank/${questionId}?message=${encodeURIComponent(
+        "Content issue reported. An institute reviewer can now resolve it with a new revision.",
+      )}`,
+    );
+  } catch (reportError) {
+    unstable_rethrow(reportError);
+    redirect(
+      `/teacher/question-bank/${questionId}?error=${encodeURIComponent(
+        reportError instanceof Error ? reportError.message : "Unable to report this content issue.",
       )}`,
     );
   }
@@ -375,6 +407,49 @@ export default async function TeacherQuestionDetailPage({
         </section>
 
         <div className="contentCard questionEditorShell">
+          <section className="builderSectionCard">
+            <div className="builderSectionHeader">
+              <div>
+                <strong>Report a content issue</strong>
+                <p>
+                  Flag an incorrect answer, ambiguous wording, explanation, curriculum mapping,
+                  duplicate, or accessibility problem. The report keeps a snapshot of this version.
+                </p>
+              </div>
+            </div>
+            <form action={reportQuestionDefectAction} className="questionTagAddForm">
+              <input name="question_id" type="hidden" value={question.id} />
+              <label className="fieldStack">
+                <span>Issue type</span>
+                <select defaultValue="" name="category" required>
+                  <option value="">Choose an issue type</option>
+                  <option value="incorrect_answer">Incorrect answer</option>
+                  <option value="ambiguous_wording">Ambiguous wording</option>
+                  <option value="explanation_issue">Explanation issue</option>
+                  <option value="curriculum_mapping">Curriculum mapping</option>
+                  <option value="duplicate_content">Duplicate content</option>
+                  <option value="accessibility">Accessibility</option>
+                  <option value="other">Other</option>
+                </select>
+              </label>
+              <label className="fieldStack">
+                <span>What needs review?</span>
+                <textarea
+                  minLength={10}
+                  name="description"
+                  placeholder="Describe the suspected problem and the expected correction."
+                  required
+                  rows={4}
+                />
+              </label>
+              <ActionSubmitButton
+                className="button buttonSecondary"
+                idleLabel="Send for review"
+                pendingLabel="Reporting..."
+              />
+            </form>
+          </section>
+
           <section className="builderSectionCard">
             <div className="builderSectionHeader">
               <div>

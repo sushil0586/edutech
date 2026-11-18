@@ -2,8 +2,9 @@ import Link from "next/link";
 import { FilterSummaryPills } from "@/components/ui/filter-summary-pills";
 import { PlatformAdminPageHeader } from "@/components/ui/platform-admin-page-header";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
-import type { AdminExamRuntimeSummary, TeacherInsightSummary, TeacherResultSummary } from "@/features/dashboard/types";
+import type { AdminActivationSummary, AdminExamRuntimeSummary, TeacherInsightSummary, TeacherResultSummary } from "@/features/dashboard/types";
 import {
+  fetchAdminActivationSummary,
   fetchAdminExamRuntimeSummary,
   fetchTeacherExamPage,
   fetchTeacherInsightSummary,
@@ -61,16 +62,18 @@ async function loadPlatformReports(runtimeStatus: AdminRuntimeStatusFilter) {
       insightSummary: null as TeacherInsightSummary | null,
       resultSummary: [] as TeacherResultSummary[],
       runtimeSummary: null as AdminExamRuntimeSummary | null,
+      activationSummary: null as AdminActivationSummary | null,
       liveExamCount: 0,
       completedExamCount: 0,
     };
   }
 
   try {
-    const [insightSummary, resultSummary, runtimeSummary, liveExamsPage, completedExamsPage] = await Promise.all([
+    const [insightSummary, resultSummary, runtimeSummary, activationSummary, liveExamsPage, completedExamsPage] = await Promise.all([
       fetchTeacherInsightSummary(),
       fetchTeacherResultSummary(),
       fetchAdminExamRuntimeSummary({ status: runtimeStatus }).catch(() => null),
+      fetchAdminActivationSummary(7).catch(() => null),
       fetchTeacherExamPage({ page: 1, pageSize: 1, filter: "live", sort: "recommended" }),
       fetchTeacherExamPage({ page: 1, pageSize: 1, filter: "completed", sort: "recommended" }),
     ]);
@@ -80,6 +83,7 @@ async function loadPlatformReports(runtimeStatus: AdminRuntimeStatusFilter) {
       insightSummary,
       resultSummary,
       runtimeSummary,
+      activationSummary,
       liveExamCount: liveExamsPage.count,
       completedExamCount: completedExamsPage.count,
     };
@@ -89,6 +93,7 @@ async function loadPlatformReports(runtimeStatus: AdminRuntimeStatusFilter) {
       insightSummary: null as TeacherInsightSummary | null,
       resultSummary: [] as TeacherResultSummary[],
       runtimeSummary: null as AdminExamRuntimeSummary | null,
+      activationSummary: null as AdminActivationSummary | null,
       liveExamCount: 0,
       completedExamCount: 0,
     };
@@ -106,7 +111,7 @@ export default async function AdminReportsPage({
 }) {
   const params = (await searchParams) ?? {};
   const runtimeStatus = resolveRuntimeStatusFilter(params.runtime_status);
-  const { source, insightSummary, resultSummary, runtimeSummary, liveExamCount, completedExamCount } =
+  const { source, insightSummary, resultSummary, runtimeSummary, activationSummary, liveExamCount, completedExamCount } =
     await loadPlatformReports(runtimeStatus);
   const overview = insightSummary?.overview ?? null;
   const lane = resolveReportLane(params.lane);
@@ -268,6 +273,16 @@ export default async function AdminReportsPage({
               <span>Live attempt pressure</span>
               <strong>{runtimeSummary?.summary.live_attempts ?? 0}</strong>
               <small>{runtimeSummary?.summary.active_slots ?? 0} active slots in {runtimeSummary?.summary.status_filter ?? runtimeStatus} view</small>
+            </article>
+            <article className="metricCard dashboardHeroCard">
+              <span>7-day activation</span>
+              <strong>{activationSummary?.counts.attempt_start ?? 0}</strong>
+              <small>{activationSummary?.counts.attempt_submit ?? 0} submissions · {activationSummary?.rates.exam_submission_from_start ?? 0}% completion</small>
+            </article>
+            <article className="metricCard dashboardHeroCard">
+              <span>Save friction</span>
+              <strong>{activationSummary?.counts.attempt_save_failed ?? 0}</strong>
+              <small>{activationSummary?.counts.support_request_created ?? 0} support requests in the same window.</small>
             </article>
           </section>
 

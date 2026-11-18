@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import { loginAction } from "@/lib/auth/actions";
 import { initialLoginActionState } from "@/lib/auth/login-state";
@@ -90,6 +91,7 @@ export function LoginForm() {
         Your session is stored in secure server cookies and refreshed through the
         backend auth service.
       </p>
+      <p className="authSupportText"><Link href="/forgot-password">Forgot your password?</Link></p>
     </form>
   );
 }

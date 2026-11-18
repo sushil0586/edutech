@@ -65,7 +65,7 @@ export default defineConfig({
   use: {
     baseURL,
     trace: "on-first-retry",
-    screenshot: "only-on-failure",
+    screenshot: process.env.PLAYWRIGHT_SCREENSHOT === "1" ? "on" : "only-on-failure",
     video: "off",
     viewport: { width: 1440, height: 960 },
   },

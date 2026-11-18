@@ -32,6 +32,7 @@ from apps.question_bank.models import (
     MasterQuestion,
     Question,
     QuestionAttachment,
+    QuestionContentDefect,
     QuestionOption,
     QuestionPassage,
     QuestionTag,
@@ -44,6 +45,8 @@ from apps.question_bank.registry import (
 )
 from apps.question_bank.serializers import (
     QuestionBulkActionSerializer,
+    QuestionContentDefectResolutionSerializer,
+    QuestionContentDefectSerializer,
     QuestionAttachmentSerializer,
     QuestionImportFinalizeSerializer,
     QuestionPassageImportFinalizeSerializer,
@@ -77,6 +80,8 @@ from apps.question_bank.services import (
     preview_bulk_question_passage_import,
     question_passage_import_template_csv,
     question_import_template_csv,
+    report_question_content_defect,
+    resolve_question_content_defect,
     request_master_question_access,
 )
 from apps.economy.services import (
@@ -420,6 +425,87 @@ class MasterQuestionLibraryViewSet(ReadOnlyModelViewSet):
             }
         )
         return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+
+class QuestionContentDefectViewSet(ModelViewSet):
+    serializer_class = QuestionContentDefectSerializer
+    permission_classes = [IsAuthenticated, CanManageQuestionBank]
+    http_method_names = ["get", "post", "head", "options"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        profile = get_account_profile(self.request.user)
+        queryset = QuestionContentDefect.objects.select_related(
+            "institute",
+            "question",
+            "reported_by",
+            "assigned_to",
+            "resolved_by",
+            "replacement_question",
+        )
+        if profile is None or not profile.is_active:
+            return queryset.none()
+        if profile.role == AccountRole.PLATFORM_ADMIN:
+            return queryset
+        if profile.institute_id:
+            return queryset.filter(institute_id=profile.institute_id)
+        return queryset.none()
+
+    def perform_create(self, serializer):
+        question = scope_question_queryset(
+            Question.objects.filter(pk=serializer.validated_data["question"].pk),
+            self.request.user,
+        ).first()
+        if question is None:
+            raise PermissionDenied("Question is outside your institute scope.")
+        defect = report_question_content_defect(
+            question=question,
+            reported_by=self.request.user,
+            category=serializer.validated_data["category"],
+            description=serializer.validated_data["description"],
+        )
+        serializer.instance = defect
+        create_audit_log(
+            user=self.request.user,
+            institute=question.institute,
+            action="question_content_defect_reported",
+            entity_type="question_content_defect",
+            entity_id=defect.id,
+            message="Question content defect reported.",
+            metadata={"question_id": str(question.id), "category": defect.category},
+            request=self.request,
+        )
+
+    @action(detail=True, methods=["post"], url_path="resolve")
+    def resolve(self, request, pk=None):
+        profile = get_account_profile(request.user)
+        if profile is None or profile.role not in {
+            AccountRole.PLATFORM_ADMIN,
+            AccountRole.INSTITUTE_ADMIN,
+        }:
+            raise PermissionDenied("Only institute or platform reviewers can resolve content defects.")
+        defect = self.get_object()
+        resolution = QuestionContentDefectResolutionSerializer(data=request.data)
+        resolution.is_valid(raise_exception=True)
+        defect, replacement = resolve_question_content_defect(
+            defect=defect,
+            resolved_by=request.user,
+            **resolution.validated_data,
+        )
+        create_audit_log(
+            user=request.user,
+            institute=defect.institute,
+            action="question_content_defect_resolved",
+            entity_type="question_content_defect",
+            entity_id=defect.id,
+            message="Question content defect resolved with a new revision.",
+            metadata={
+                "question_id": str(defect.question_id),
+                "replacement_question_id": str(replacement.id),
+            },
+            request=request,
+        )
+        return Response(self.get_serializer(defect).data, status=status.HTTP_200_OK)
 
 
 class QuestionViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):

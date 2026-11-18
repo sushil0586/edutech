@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
-import { Text, View } from "react-native";
+import { Linking, Text, View } from "react-native";
 import { ScreenShell } from "@/components/screen-shell";
 import { HeroCard } from "@/components/hero-card";
 import { ActionButton } from "@/components/action-button";
@@ -12,6 +12,7 @@ import { fetchStudentDashboardBundle } from "@/lib/api/student";
 import { clearPersistedSession } from "@/lib/secure-session";
 import { useSessionStore } from "@/store/session-store";
 import { appStyles } from "@/theme/styles";
+import { WEB_PORTAL_URL } from "@/lib/config";
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -120,6 +121,17 @@ export default function ProfileScreen() {
           </View>
         </View>
         )}
+      </SectionBlock>
+
+      <SectionBlock
+        title="Privacy and support"
+        subtitle="Open the verified web routes for policies and account requests"
+      >
+        <View style={appStyles.rowWrap}>
+          <ActionButton label="Support" onPress={() => void Linking.openURL(`${WEB_PORTAL_URL}/support`)} testID="profile-support-button" />
+          <ActionButton label="Privacy" tone="secondary" onPress={() => void Linking.openURL(`${WEB_PORTAL_URL}/privacy`)} />
+          <ActionButton label="Terms" tone="secondary" onPress={() => void Linking.openURL(`${WEB_PORTAL_URL}/terms`)} />
+        </View>
       </SectionBlock>
 
       <SectionBlock

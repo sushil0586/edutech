@@ -6,7 +6,7 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, Spec
 from config.health import HealthCheckView
 
 urlpatterns = [
-    path("admin/", admin.site.urls),
+    path("django-admin/", admin.site.urls),
     path("api/v1/health/", HealthCheckView.as_view(), name="health-check"),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/swagger/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),

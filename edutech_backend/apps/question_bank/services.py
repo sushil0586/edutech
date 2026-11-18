@@ -22,6 +22,22 @@ from apps.academics.services import (
     validate_option_catalog_code,
 )
 from apps.academics.models import Program, Subject, Topic
+from apps.question_bank.constants import (
+    ASSERTION_REASON_DEFAULT_OPTIONS,
+    FILL_IN_BLANKS_MARKER,
+    QUESTION_METADATA_ACCEPTED_ANSWERS_KEY,
+    QUESTION_METADATA_ASSERTION_REASON_KEY,
+    QUESTION_METADATA_ASSERTION_TEXT_KEY,
+    QUESTION_METADATA_BLANK_COUNT_KEY,
+    QUESTION_METADATA_FILL_IN_BLANKS_KEY,
+    QUESTION_METADATA_MATRIX_LEFT_ITEMS_KEY,
+    QUESTION_METADATA_MATRIX_MATCH_KEY,
+    QUESTION_METADATA_MATRIX_RIGHT_ITEMS_KEY,
+    QUESTION_METADATA_NUMERIC_TOLERANCE_KEY,
+    QUESTION_METADATA_NUMERIC_VALIDATION_KEY,
+    QUESTION_METADATA_REASON_TEXT_KEY,
+    QUESTION_METADATA_REVIEW_GUIDANCE_KEY,
+)
 from apps.question_bank.models import (
     InstituteQuestionAccess,
     InstituteQuestionAccessStatus,
@@ -30,6 +46,8 @@ from apps.question_bank.models import (
     MasterQuestionSourceType,
     MasterQuestionVisibility,
     Question,
+    QuestionAttachment,
+    QuestionContentDefect,
     QuestionOption,
     QuestionPassage,
     QuestionTag,
@@ -98,13 +116,6 @@ IMPORT_TEMPLATE_REQUIRED_COLUMNS = [
     "negative_marks",
     "explanation",
     "tags",
-]
-FILL_IN_BLANKS_MARKER = "[[blank]]"
-ASSERTION_REASON_DEFAULT_OPTIONS = [
-    "Both Assertion and Reason are true, and Reason is the correct explanation of Assertion.",
-    "Both Assertion and Reason are true, but Reason is not the correct explanation of Assertion.",
-    "Assertion is true, but Reason is false.",
-    "Assertion is false, but Reason is true.",
 ]
 IMPORT_PASSAGE_TEMPLATE_COLUMNS = [
     "subject",
@@ -1309,9 +1320,9 @@ def _build_type_specific_import_metadata(question_type, row):
                 "Reason:\n"
                 f"{reason_text}"
             )
-        metadata["assertion_reason"] = {
-            "assertion_text": assertion_text,
-            "reason_text": reason_text,
+        metadata[QUESTION_METADATA_ASSERTION_REASON_KEY] = {
+            QUESTION_METADATA_ASSERTION_TEXT_KEY: assertion_text,
+            QUESTION_METADATA_REASON_TEXT_KEY: reason_text,
         }
         return metadata
 
@@ -1330,9 +1341,9 @@ def _build_type_specific_import_metadata(question_type, row):
             raise ValidationError(
                 {"review_guidance": "Review guidance is only supported for essay manual-review rows."}
             )
-        metadata["matrix_match"] = {
-            "left_items": matrix_left_items,
-            "right_items": matrix_right_items,
+        metadata[QUESTION_METADATA_MATRIX_MATCH_KEY] = {
+            QUESTION_METADATA_MATRIX_LEFT_ITEMS_KEY: matrix_left_items,
+            QUESTION_METADATA_MATRIX_RIGHT_ITEMS_KEY: matrix_right_items,
         }
         return metadata
 
@@ -1350,7 +1361,7 @@ def _build_type_specific_import_metadata(question_type, row):
                 {"numeric_tolerance": "Numeric tolerance is only supported for numeric-answer rows."}
             )
         if review_guidance:
-            metadata["review_guidance"] = review_guidance
+            metadata[QUESTION_METADATA_REVIEW_GUIDANCE_KEY] = review_guidance
         return metadata
 
     if question_type == "numeric_answer":
@@ -1372,7 +1383,7 @@ def _build_type_specific_import_metadata(question_type, row):
             normalized_value = format(numeric_value.normalize(), "f")
             if normalized_value not in normalized_answers:
                 normalized_answers.append(normalized_value)
-        metadata["accepted_answers"] = normalized_answers
+        metadata[QUESTION_METADATA_ACCEPTED_ANSWERS_KEY] = normalized_answers
 
         if numeric_tolerance:
             try:
@@ -1385,7 +1396,9 @@ def _build_type_specific_import_metadata(question_type, row):
                 raise ValidationError(
                     {"numeric_tolerance": "Numeric tolerance cannot be negative."}
                 )
-            metadata["numeric_validation"] = {"tolerance": format(tolerance_decimal.normalize(), "f")}
+            metadata[QUESTION_METADATA_NUMERIC_VALIDATION_KEY] = {
+                QUESTION_METADATA_NUMERIC_TOLERANCE_KEY: format(tolerance_decimal.normalize(), "f")
+            }
 
         if review_guidance:
             raise ValidationError(
@@ -1410,8 +1423,10 @@ def _build_type_specific_import_metadata(question_type, row):
                     )
                 }
             )
-        metadata["accepted_answers"] = accepted_answers
-        metadata["fill_in_blanks"] = {"blank_count": blank_count}
+        metadata[QUESTION_METADATA_ACCEPTED_ANSWERS_KEY] = accepted_answers
+        metadata[QUESTION_METADATA_FILL_IN_BLANKS_KEY] = {
+            QUESTION_METADATA_BLANK_COUNT_KEY: blank_count
+        }
         if numeric_tolerance:
             raise ValidationError(
                 {"numeric_tolerance": "Numeric tolerance is only supported for numeric-answer rows."}
@@ -2078,3 +2093,159 @@ def perform_bulk_question_action(*, action_name, questions, value=None):
                 created += 1
         return {"updated_count": created}
     raise ValidationError({"action": "Unsupported bulk action."})
+
+
+def build_question_content_snapshot(question):
+    return {
+        "question_id": str(question.id),
+        "question_type": question.question_type,
+        "difficulty_level": question.difficulty_level,
+        "question_text": question.question_text,
+        "explanation": question.explanation,
+        "default_marks": str(question.default_marks),
+        "negative_marks": str(question.negative_marks),
+        "metadata": dict(question.metadata or {}),
+        "options": [
+            {
+                "id": str(option.id),
+                "option_text": option.option_text,
+                "is_correct": option.is_correct,
+                "option_order": option.option_order,
+            }
+            for option in question.options.filter(is_active=True).order_by("option_order")
+        ],
+    }
+
+
+@transaction.atomic
+def report_question_content_defect(*, question, reported_by, category, description):
+    locked_question = Question.objects.select_for_update().get(pk=question.pk)
+    return QuestionContentDefect.objects.create(
+        institute=locked_question.institute,
+        question=locked_question,
+        reported_by=reported_by,
+        category=category,
+        description=description.strip(),
+        question_snapshot=build_question_content_snapshot(locked_question),
+    )
+
+
+@transaction.atomic
+def resolve_question_content_defect(
+    *,
+    defect,
+    resolved_by,
+    resolution_notes,
+    question_text=None,
+    explanation=None,
+    options=None,
+    accepted_answers=None,
+):
+    defect = QuestionContentDefect.objects.select_for_update().get(pk=defect.pk)
+    if defect.status in {"resolved", "rejected"}:
+        raise ValidationError({"status": "This content defect is already closed."})
+
+    source = Question.objects.select_for_update().get(pk=defect.question_id)
+    source_metadata = dict(source.metadata or {})
+    revision_number = int(source_metadata.get("content_revision", 1) or 1) + 1
+    replacement_metadata = {
+        key: value
+        for key, value in source_metadata.items()
+        if key not in {"seed_batch", "seed_sequence", "superseded_by"}
+    }
+    replacement_metadata.update(
+        {
+            "content_revision": revision_number,
+            "revision_of": str(source.id),
+            "correction_defect_id": str(defect.id),
+        }
+    )
+    if accepted_answers is not None:
+        if not question_type_supports_text_answer(source.question_type):
+            raise ValidationError(
+                {"accepted_answers": "Accepted answers are not supported for this question type."}
+            )
+        normalized_answers = [
+            str(answer).strip() for answer in accepted_answers if str(answer).strip()
+        ]
+        if not normalized_answers:
+            raise ValidationError(
+                {"accepted_answers": "Provide at least one non-empty accepted answer."}
+            )
+        replacement_metadata[QUESTION_METADATA_ACCEPTED_ANSWERS_KEY] = normalized_answers
+
+    replacement = Question.objects.create(
+        institute=source.institute,
+        program=source.program,
+        subject=source.subject,
+        topic=source.topic,
+        created_by_teacher=source.created_by_teacher,
+        passage=source.passage,
+        passage_order=source.passage_order,
+        question_type=source.question_type,
+        difficulty_level=source.difficulty_level,
+        content_format=source.content_format,
+        question_text=(question_text if question_text is not None else source.question_text),
+        explanation=(explanation if explanation is not None else source.explanation),
+        default_marks=source.default_marks,
+        negative_marks=source.negative_marks,
+        is_verified=True,
+        is_active=True,
+        metadata=replacement_metadata,
+    )
+
+    source_options = list(source.options.filter(is_active=True).order_by("option_order"))
+    option_payloads = options if options is not None else [
+        {"option_text": option.option_text, "is_correct": option.is_correct}
+        for option in source_options
+    ]
+    for option_order, payload in enumerate(option_payloads, start=1):
+        QuestionOption.objects.create(
+            question=replacement,
+            content_format=payload.get("content_format", source.content_format),
+            option_text=str(payload["option_text"]).strip(),
+            option_order=option_order,
+            is_correct=bool(payload.get("is_correct")),
+            is_active=True,
+        )
+    validate_question_options(replacement.question_type, option_payloads)
+
+    for tag_map in source.tag_maps.filter(is_active=True).select_related("tag"):
+        QuestionTagMap.objects.create(question=replacement, tag=tag_map.tag)
+
+    for attachment in source.attachments.filter(is_active=True):
+        QuestionAttachment.objects.create(
+            question=replacement,
+            attachment_type=attachment.attachment_type,
+            file=attachment.file,
+            title=attachment.title,
+            alt_text=attachment.alt_text,
+            display_order=attachment.display_order,
+            is_inline=attachment.is_inline,
+        )
+
+    sync_master_question_from_institute_question(replacement)
+
+    source_metadata["superseded_by"] = str(replacement.id)
+    source_metadata["content_revision"] = int(source_metadata.get("content_revision", 1) or 1)
+    source.metadata = source_metadata
+    source.is_active = False
+    source.save(update_fields=["metadata", "is_active", "updated_at"])
+    sync_master_question_from_institute_question(source)
+
+    defect.status = "resolved"
+    defect.resolved_by = resolved_by
+    defect.resolved_at = timezone.now()
+    defect.resolution_notes = resolution_notes.strip()
+    defect.replacement_question = replacement
+    defect.save(
+        update_fields=[
+            "status",
+            "resolved_by",
+            "resolved_at",
+            "resolution_notes",
+            "replacement_question",
+            "updated_at",
+        ]
+    )
+    return defect, replacement

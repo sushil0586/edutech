@@ -389,7 +389,7 @@ negative_marks: 0.25
 archetype: compare_and_classify
 
 Question Text:
-Which pair is correctly matched?
+Which substance type and observable property pair is correctly matched?
 
 Explanation:
 Acids are commonly sour, while bases commonly feel soapy or slippery.

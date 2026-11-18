@@ -1,5 +1,6 @@
 appId: ${MAESTRO_APP_ID}
 ---
+# Frozen case: EXPO-P1-001
 # Set these before running:
 # STUDENT_USERNAME
 # STUDENT_PASSWORD
@@ -13,10 +14,12 @@ appId: ${MAESTRO_APP_ID}
     clearState: true
 
 - extendedWaitUntil:
-    visible: "Login"
-    timeout: 30000
+    visible:
+      id: "role-gate-login-button"
+    timeout: 60000
 
-- tapOn: "Login"
+- tapOn:
+    id: "role-gate-login-button"
 - tapOn:
     id: "login-username-input"
 - inputText: ${STUDENT_USERNAME}
@@ -68,7 +71,16 @@ appId: ${MAESTRO_APP_ID}
 - tapOn:
     id: "exams-search-input"
 - inputText: "math"
-- tapOn: "Find the right exam"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
+
+- scrollUntilVisible:
+    element:
+      id: "exams-filter-reset-button"
+    direction: DOWN
 
 - tapOn:
     id: "exams-filter-reset-button"
@@ -84,7 +96,11 @@ appId: ${MAESTRO_APP_ID}
 - assertVisible: "Exam Readiness"
 - assertVisible: "Readiness overview"
 
+- takeScreenshot: expo-p1-001-exam-detail
+
 - tapOn:
     id: "exam-detail-open-exams-button"
 
 - assertVisible: "Student Exams"
+
+- takeScreenshot: expo-p1-001-returned-to-exams

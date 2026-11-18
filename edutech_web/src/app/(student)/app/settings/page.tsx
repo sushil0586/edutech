@@ -207,6 +207,14 @@ export default async function SettingsPage() {
                   </article>
         </div>
       </section>
+      <section className="contentCard">
+        <div className="sectionHeading"><strong>Privacy and support</strong></div>
+        <div className="studentInsightHeroActions">
+          <Link className="button buttonSecondary" href="/support">Contact Support</Link>
+          <Link className="button buttonGhost" href="/privacy">Privacy</Link>
+          <Link className="button buttonGhost" href="/terms">Terms</Link>
+        </div>
+      </section>
 
       <section className="studentInsightsTwoColumn">
         <section className="contentCard">

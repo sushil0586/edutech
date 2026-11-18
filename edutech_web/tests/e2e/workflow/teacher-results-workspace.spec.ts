@@ -71,12 +71,53 @@ test.describe("Teacher results workspace", () => {
     await expect(page.getByText(/group: status/i)).toBeVisible();
 
     await page.getByRole("link", { name: /reset exam filters/i }).click();
-    await expect(page).toHaveURL(/\/teacher\/results(?:\?.*)?$/);
+    await expect
+      .poll(() => {
+        const url = new URL(page.url());
+        return {
+          pathname: url.pathname,
+          exam: url.searchParams.get("exam"),
+          filter: url.searchParams.get("exam_list_filter"),
+          sort: url.searchParams.get("exam_list_sort"),
+          group: url.searchParams.get("exam_list_group"),
+          pageSize: url.searchParams.get("exam_page_size"),
+        };
+      })
+      .toEqual({
+        pathname: "/teacher/results",
+        exam: expect.any(String),
+        filter: null,
+        sort: null,
+        group: null,
+        pageSize: null,
+      });
 
     const refreshStatusButton = page.getByRole("button", { name: /refresh exam status/i });
     if (await refreshStatusButton.isVisible().catch(() => false)) {
+      const selectedExamId = new URL(page.url()).searchParams.get("exam");
+      expect(selectedExamId).toBeTruthy();
+      const refreshResponsePromise = page.waitForResponse((response) => {
+        const url = new URL(response.url());
+        return response.request().method() === "POST" && url.pathname === "/teacher/results";
+      });
+
       await refreshStatusButton.click();
-      await expect(page).toHaveURL(/\/teacher\/results(?:\?.*message=.*)?$/);
+      const refreshResponse = await refreshResponsePromise;
+      expect(refreshResponse.status()).toBe(303);
+      expect(refreshResponse.headers()["x-action-redirect"]).toContain(
+        `/teacher/results?exam=${selectedExamId}&message=`,
+      );
+      await expect
+        .poll(() => {
+          const url = new URL(page.url());
+          return { pathname: url.pathname, exam: url.searchParams.get("exam") };
+        })
+        .toEqual({ pathname: "/teacher/results", exam: selectedExamId });
+      await expectTeacherResultsWorkspace(page);
+
+      const refreshedUrl = page.url();
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await expect(page).toHaveURL(refreshedUrl);
       await expectTeacherResultsWorkspace(page);
     }
 

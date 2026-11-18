@@ -205,8 +205,8 @@ test.describe("Teacher mutable review actions", () => {
     let studentProfileId = "";
     let studentAcademicYearName: string | null = null;
     let studentProgramName: string | null = null;
-    let questionId: string | null = null;
-    let examId: string | null = null;
+    let questionId = "";
+    let examId = "";
     const uniqueSeed = Date.now();
     const questionText = `Playwright essay review question ${uniqueSeed}`;
     const examTitle = `PW Teacher Review ${uniqueSeed}`;
@@ -271,8 +271,8 @@ test.describe("Teacher mutable review actions", () => {
 
       const questionDetailUrl = page.url().split("?")[0] ?? page.url();
       const questionIdMatch = questionDetailUrl.match(/\/teacher\/question-bank\/([^/?#]+)/);
-      questionId = questionIdMatch?.[1] ?? null;
-      expect(questionId).not.toBeNull();
+      questionId = questionIdMatch?.[1] ?? "";
+      expect(questionId).not.toBe("");
 
       await page.goto("/teacher/exams/new");
       await expect(page.getByRole("heading", { name: /create exam/i }).first()).toBeVisible();
@@ -295,8 +295,8 @@ test.describe("Teacher mutable review actions", () => {
 
       const examDetailUrl = page.url().split("?")[0] ?? page.url();
       const examIdMatch = examDetailUrl.match(/\/teacher\/exams\/([^/?#]+)/);
-      examId = examIdMatch?.[1] ?? null;
-      expect(examId).not.toBeNull();
+      examId = examIdMatch?.[1] ?? "";
+      expect(examId).not.toBe("");
 
       await page.goto(`/teacher/exams/${examId}/builder?tab=questions`);
       await expect(page.getByText(/attach one question manually/i)).toBeVisible();

@@ -18,24 +18,28 @@ import {
   fetchStudentWalletSummary,
   getStudentApiState,
 } from "@/lib/api/student";
+import type { StudentStarLedgerEntry } from "@/features/dashboard/types";
 import {
   studentDateTimeLabel,
   titleCaseState,
 } from "@/lib/student/formatters";
 
-async function loadWalletWorkspace() {
+const WALLET_HISTORY_PAGE_SIZE = 5;
+const studentPurchasesEnabled = process.env.STUDENT_SELF_SERVICE_PURCHASES_ENABLED === "true";
+
+async function loadWalletWorkspace({ ledgerPage, orderPage }: { ledgerPage: number; orderPage: number }) {
   const state = getStudentApiState();
 
   if (!state.apiConfigured) {
     return {
       source: "unconfigured" as const,
       wallet: null,
-      ledger: [],
+      ledger: { count: 0, next: null, previous: null, results: [] },
       rewards: [],
       unlocks: [],
       starPacks: [],
       subscriptionPlans: [],
-      orders: [],
+      orders: { count: 0, next: null, previous: null, results: [], pending_count: 0 },
       subscriptions: [],
     };
   }
@@ -44,12 +48,12 @@ async function loadWalletWorkspace() {
     const [wallet, ledger, rewards, unlocks, starPacks, subscriptionPlans, orders, subscriptions] =
       await Promise.all([
         fetchStudentWalletSummary(),
-        fetchStudentWalletLedger(),
+        fetchStudentWalletLedger({ page: ledgerPage, pageSize: WALLET_HISTORY_PAGE_SIZE }),
         fetchStudentRewardEvents(),
         fetchStudentUnlockStates(),
         fetchStudentStarPacks(),
         fetchStudentSubscriptionPlans(),
-        fetchStudentPaymentOrders(),
+        fetchStudentPaymentOrders({ page: orderPage, pageSize: WALLET_HISTORY_PAGE_SIZE }),
         fetchStudentSubscriptions(),
       ]);
 
@@ -68,12 +72,12 @@ async function loadWalletWorkspace() {
     return {
       source: "error" as const,
       wallet: null,
-      ledger: [],
+      ledger: { count: 0, next: null, previous: null, results: [] },
       rewards: [],
       unlocks: [],
       starPacks: [],
       subscriptionPlans: [],
-      orders: [],
+      orders: { count: 0, next: null, previous: null, results: [], pending_count: 0 },
       subscriptions: [],
     };
   }
@@ -133,14 +137,14 @@ function latestReferralReward(rewards: Awaited<ReturnType<typeof fetchStudentRew
   );
 }
 
-function latestReferralLedgerEntry(ledger: Awaited<ReturnType<typeof fetchStudentWalletLedger>>) {
+function latestReferralLedgerEntry(ledger: StudentStarLedgerEntry[]) {
   return ledger.find((entry) => entry.source_type === "referral_bonus");
 }
 
 function referralRewardReference(
   referenceSource:
     | Awaited<ReturnType<typeof fetchStudentRewardEvents>>[number]
-    | Awaited<ReturnType<typeof fetchStudentWalletLedger>>[number]
+    | StudentStarLedgerEntry
     | null
     | undefined,
 ) {
@@ -220,8 +224,20 @@ function unlockTone(status: string) {
   }
 }
 
+function walletHistoryHref({ ledgerPage, orderPage }: { ledgerPage: number; orderPage: number }) {
+  const query = new URLSearchParams();
+  if (ledgerPage > 1) query.set("ledger_page", String(ledgerPage));
+  if (orderPage > 1) query.set("order_page", String(orderPage));
+  const queryString = query.toString();
+  return `/app/wallet${queryString ? `?${queryString}` : ""}`;
+}
+
 async function createStarPackOrderAction(formData: FormData) {
   "use server";
+
+  if (!studentPurchasesEnabled) {
+    redirect("/app/wallet?error=Student%20purchases%20are%20not%20available%20during%20the%20assisted%20pilot.");
+  }
 
   const starPackId = String(formData.get("star_pack_id") ?? "");
   if (!starPackId) {
@@ -253,20 +269,22 @@ async function createStarPackOrderAction(formData: FormData) {
 export default async function WalletPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; message?: string }>;
+  searchParams: Promise<{ error?: string; message?: string; ledger_page?: string; order_page?: string }>;
 }) {
-  const { error, message } = await searchParams;
+  const { error, message, ledger_page: ledgerPageParam, order_page: orderPageParam } = await searchParams;
+  const ledgerPage = Math.max(1, Number.parseInt(ledgerPageParam ?? "1", 10) || 1);
+  const orderPage = Math.max(1, Number.parseInt(orderPageParam ?? "1", 10) || 1);
   const [data, profile] = await Promise.all([
-    loadWalletWorkspace(),
+    loadWalletWorkspace({ ledgerPage, orderPage }),
     fetchCurrentAccountProfile(),
   ]);
   const referralCode = profile?.student_context?.referral_code ?? null;
   const latestReferralRewardEvent = latestReferralReward(data.rewards);
-  const latestReferralLedger = latestReferralLedgerEntry(data.ledger);
+  const latestReferralLedger = latestReferralLedgerEntry(data.ledger.results);
   const latestReferralCode = referralRewardReference(latestReferralLedger ?? latestReferralRewardEvent);
-  const pendingOrders = data.orders.filter((order) =>
-    ["pending", "processing"].includes(order.status),
-  );
+  const pendingOrderCount = data.orders.pending_count;
+  const ledgerPageCount = Math.max(1, Math.ceil(data.ledger.count / WALLET_HISTORY_PAGE_SIZE));
+  const orderPageCount = Math.max(1, Math.ceil(data.orders.count / WALLET_HISTORY_PAGE_SIZE));
 
   return (
     <div className="studentPage studentDashboardModern studentWalletPage studentLearnerPage studentLearnerAccountPage studentLearnerWalletPage">
@@ -333,8 +351,8 @@ export default async function WalletPage({
                   : "No spendable stars are available yet"}
               </strong>
               <small>
-                {pendingOrders.length
-                  ? `${pendingOrders.length} order request${pendingOrders.length === 1 ? "" : "s"} still waiting for confirmation`
+                {pendingOrderCount
+                  ? `${pendingOrderCount} order request${pendingOrderCount === 1 ? "" : "s"} still waiting for confirmation`
                   : "No pending wallet requests right now"}
               </small>
               <p className="sectionDescription">
@@ -374,7 +392,7 @@ export default async function WalletPage({
               },
               {
                 label: "Pending Orders",
-                value: pendingOrders.length,
+                value: pendingOrderCount,
                 note: "Requests still waiting for confirmation",
               },
             ]}
@@ -547,7 +565,7 @@ export default async function WalletPage({
                   Every balance change appears here, so you can see whether stars were earned, spent, purchased, or credited.
                 </p>
                 <div className="dashboardRailStack">
-                  {data.ledger.slice(0, 6).map((entry) => (
+                  {data.ledger.results.map((entry) => (
                     <div className="dashboardRailRow dashboardLedgerRow" key={entry.id}>
                       <div>
                         <strong>{entry.reason}</strong>
@@ -563,10 +581,21 @@ export default async function WalletPage({
                       </span>
                     </div>
                   ))}
-                  {data.ledger.length === 0 ? (
+                  {data.ledger.count === 0 ? (
                     <p className="emptyText">Ledger history will appear here as soon as star activity is recorded.</p>
                   ) : null}
                 </div>
+                {data.ledger.count > 0 ? (
+                  <div className="studentReviewPaginationBar walletHistoryPagination" aria-label="Ledger pagination">
+                    <div className="studentReviewPaginationSummary">
+                      <span>Page {ledgerPage} of {ledgerPageCount} · {data.ledger.count} ledger entries</span>
+                    </div>
+                    <div className="studentReviewPaginationActions">
+                      {ledgerPage > 1 ? <Link className="button buttonGhost" href={walletHistoryHref({ ledgerPage: ledgerPage - 1, orderPage })}>Previous ledger page</Link> : null}
+                      {ledgerPage < ledgerPageCount ? <Link className="button buttonPrimary" href={walletHistoryHref({ ledgerPage: ledgerPage + 1, orderPage })}>Next ledger page</Link> : null}
+                    </div>
+                  </div>
+                ) : null}
               </section>
 
               <section className="contentCard">
@@ -638,7 +667,9 @@ export default async function WalletPage({
                   <Link href="/app/subscriptions">Subscriptions</Link>
                 </div>
                 <p className="sectionDescription">
-                  These are one-time top-up options. Choosing a pack creates a tracked request.
+                  {studentPurchasesEnabled
+                    ? "These are one-time top-up options. Choosing a pack creates a tracked request."
+                    : "Pack purchasing is not available during the assisted institute pilot."}
                 </p>
                 <div className="dashboardRailStack">
                   {data.starPacks.map((pack) => (
@@ -646,14 +677,14 @@ export default async function WalletPage({
                       <strong>{pack.name}</strong>
                       <span>{pack.stars_credited.toLocaleString("en-IN")} stars</span>
                       <small>{currencyLabel(pack.price_amount, pack.currency)}</small>
-                      <form action={createStarPackOrderAction}>
+                      {studentPurchasesEnabled ? <form action={createStarPackOrderAction}>
                         <input name="star_pack_id" type="hidden" value={pack.id} />
                         <ActionSubmitButton
                           className="button buttonPrimary"
                           idleLabel="Request Pack"
                           pendingLabel="Creating..."
                         />
-                      </form>
+                      </form> : <small>Contact your institute for pilot access.</small>}
                     </div>
                   ))}
                   {data.starPacks.length === 0 ? (
@@ -707,7 +738,7 @@ export default async function WalletPage({
                   Quick view of recent star-pack and subscription requests.
                 </p>
                 <div className="dashboardRailStack">
-                  {data.orders.slice(0, 4).map((order) => (
+                  {data.orders.results.slice(0, 4).map((order) => (
                     <div className="dashboardRailRow" key={order.id}>
                       <div>
                         <strong>
@@ -725,7 +756,7 @@ export default async function WalletPage({
                       </StatusPill>
                     </div>
                   ))}
-                  {data.orders.length === 0 ? (
+                  {data.orders.count === 0 ? (
                     <p className="emptyText">
                       Purchase requests will appear here once you create a pack or subscription
                       order.
@@ -742,7 +773,7 @@ export default async function WalletPage({
                   Check whether a request is created, processed, or fully credited into your wallet.
                 </p>
                 <div className="dashboardRailStack">
-                  {data.orders.slice(0, 5).map((order) => {
+                  {data.orders.results.map((order) => {
                     const latestTransaction = order.transactions[0] ?? null;
                     return (
                       <div className="dashboardOfferCard" key={`lifecycle-${order.id}`}>
@@ -789,13 +820,24 @@ export default async function WalletPage({
                       </div>
                     );
                   })}
-                  {data.orders.length === 0 ? (
+                  {data.orders.count === 0 ? (
                     <p className="emptyText">
                       Detailed order progress will appear here after you create a star pack or
                       subscription order.
                     </p>
                   ) : null}
                 </div>
+                {data.orders.count > 0 ? (
+                  <div className="studentReviewPaginationBar walletHistoryPagination" aria-label="Order pagination">
+                    <div className="studentReviewPaginationSummary">
+                      <span>Page {orderPage} of {orderPageCount} · {data.orders.count} orders</span>
+                    </div>
+                    <div className="studentReviewPaginationActions">
+                      {orderPage > 1 ? <Link className="button buttonGhost" href={walletHistoryHref({ ledgerPage, orderPage: orderPage - 1 })}>Previous order page</Link> : null}
+                      {orderPage < orderPageCount ? <Link className="button buttonPrimary" href={walletHistoryHref({ ledgerPage, orderPage: orderPage + 1 })}>Next order page</Link> : null}
+                    </div>
+                  </div>
+                ) : null}
               </section>
             </aside>
           </section>

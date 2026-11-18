@@ -275,8 +275,8 @@ test.describe("Teacher populated analysis mutable coverage", () => {
     let studentProgramName: string | null = null;
     let studentProfileId = "";
     let questionSubjectId: string | null = null;
-    let questionId: string | null = null;
-    let examId: string | null = null;
+    let questionId = "";
+    let examId = "";
     const uniqueSeed = Date.now();
     const questionText = `PW teacher analysis question ${uniqueSeed}`;
     const examTitle = `PW Teacher Analysis ${uniqueSeed}`;
@@ -332,8 +332,8 @@ test.describe("Teacher populated analysis mutable coverage", () => {
       await page.getByRole("button", { name: /^create question$/i }).click();
       await expect(page).toHaveURL(/\/teacher\/question-bank\/.+\?message=/);
       const questionDetailUrl = page.url().split("?")[0] ?? page.url();
-      questionId = questionDetailUrl.match(/\/teacher\/question-bank\/([^/?#]+)/)?.[1] ?? null;
-      expect(questionId).not.toBeNull();
+      questionId = questionDetailUrl.match(/\/teacher\/question-bank\/([^/?#]+)/)?.[1] ?? "";
+      expect(questionId).not.toBe("");
       logCheckpoint(startedAt, "question created");
 
       await page.goto("/teacher/exams/new");
@@ -355,8 +355,8 @@ test.describe("Teacher populated analysis mutable coverage", () => {
       await page.getByRole("button", { name: /create exam shell/i }).click();
       await expect(page).toHaveURL(/\/teacher\/exams\/.+\?message=/);
       const examDetailUrl = page.url().split("?")[0] ?? page.url();
-      examId = examDetailUrl.match(/\/teacher\/exams\/([^/?#]+)/)?.[1] ?? null;
-      expect(examId).not.toBeNull();
+      examId = examDetailUrl.match(/\/teacher\/exams\/([^/?#]+)/)?.[1] ?? "";
+      expect(examId).not.toBe("");
       logCheckpoint(startedAt, "exam shell created");
 
       const sectionId = await createExamSection(page, examId, "Analysis Section", 1, questionSubjectId);

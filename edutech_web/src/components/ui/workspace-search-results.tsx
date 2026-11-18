@@ -322,13 +322,13 @@ export function WorkspaceSearchResults({
                 active: groupOption === "section",
               },
             ].map((chip) => (
-              <Link
+              <a
                 key={chip.label}
                 className={`workspaceQuickChip${chip.active ? " workspaceQuickChipActive" : ""}`}
                 href={chip.href}
               >
                 {chip.label}
-              </Link>
+              </a>
             ))}
           </div>
         </div>

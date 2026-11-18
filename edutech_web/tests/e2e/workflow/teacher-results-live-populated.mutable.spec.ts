@@ -183,8 +183,8 @@ test.describe("Teacher populated live monitor mutable coverage", () => {
     let studentAcademicYearName: string | null = null;
     let studentProgramName: string | null = null;
     let studentProfileId = "";
-    let questionId: string | null = null;
-    let examId: string | null = null;
+    let questionId = "";
+    let examId = "";
     let studentAttemptId: string | null = null;
     const uniqueSeed = Date.now();
     const questionText = `PW teacher live monitor question ${uniqueSeed}`;
@@ -240,8 +240,8 @@ test.describe("Teacher populated live monitor mutable coverage", () => {
       await page.getByRole("button", { name: /^create question$/i }).click();
       await expect(page).toHaveURL(/\/teacher\/question-bank\/.+\?message=/);
       const questionDetailUrl = page.url().split("?")[0] ?? page.url();
-      questionId = questionDetailUrl.match(/\/teacher\/question-bank\/([^/?#]+)/)?.[1] ?? null;
-      expect(questionId).not.toBeNull();
+      questionId = questionDetailUrl.match(/\/teacher\/question-bank\/([^/?#]+)/)?.[1] ?? "";
+      expect(questionId).not.toBe("");
 
       await page.goto("/teacher/exams/new");
       await expect(page.getByRole("heading", { name: /create exam/i }).first()).toBeVisible();
@@ -262,8 +262,8 @@ test.describe("Teacher populated live monitor mutable coverage", () => {
       await expect(page).toHaveURL(/\/teacher\/exams\/.+\?message=/);
 
       const examDetailUrl = page.url().split("?")[0] ?? page.url();
-      examId = examDetailUrl.match(/\/teacher\/exams\/([^/?#]+)/)?.[1] ?? null;
-      expect(examId).not.toBeNull();
+      examId = examDetailUrl.match(/\/teacher\/exams\/([^/?#]+)/)?.[1] ?? "";
+      expect(examId).not.toBe("");
 
       await page.goto(`/teacher/exams/${examId}/builder?tab=questions`);
       const manualAttachForm = page.locator("form.builderForm.builderSubform").filter({

@@ -19,6 +19,7 @@ export type AccountProfile = {
   role: string;
   institute: string | null;
   institute_name?: string | null;
+  institute_access_suspended?: boolean;
   student_profile: string | null;
   teacher_profile: string | null;
   onboarding_status?: string;
@@ -116,6 +117,16 @@ export type PortalRole =
   | "platform_admin"
   | "institute_admin"
   | "parent";
+
+export const PORTAL_ROLE_GROUPS = {
+  studentOnly: ["student"],
+  teacherOnly: ["teacher"],
+  parentOnly: ["parent"],
+  instituteAdminOnly: ["institute_admin"],
+  platformAdminOnly: ["platform_admin"],
+  instituteOrPlatformAdmin: ["institute_admin", "platform_admin"],
+  teacherScopedOperators: ["teacher", "institute_admin", "platform_admin"],
+} as const satisfies Record<string, readonly PortalRole[]>;
 
 export type AuthenticatedSession = {
   accessToken: string;
@@ -251,6 +262,7 @@ async function requestAuthJson<T>(
     method: init?.method ?? "GET",
     headers: {
       "Content-Type": "application/json",
+      "X-Client-Platform": "web",
       ...(init?.headers ?? {}),
     },
     body: init?.body,
@@ -399,6 +411,39 @@ export async function loginWithPassword(username: string, password: string) {
   return payload.user;
 }
 
+export async function requestPasswordReset(identifier: string) {
+  return requestAuthJson<{ detail: string }>("/api/v1/auth/password-reset/request/", {
+    method: "POST",
+    body: JSON.stringify({ identifier }),
+  });
+}
+
+export async function confirmPasswordReset(payload: {
+  request: string;
+  token: string;
+  new_password: string;
+  confirm_password: string;
+}) {
+  return requestAuthJson<{ detail: string }>("/api/v1/auth/password-reset/confirm/", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function createSupportRequest(payload: {
+  category: string;
+  subject: string;
+  description: string;
+}) {
+  const accessToken = await getSessionAccessToken();
+  if (!accessToken) throw new AuthenticationError("Sign in to submit a support request.", "session_missing");
+  return requestAuthJson<{ id: string; status: string }>("/api/v1/support/requests/", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function registerWithPassword(payload: {
   role: string;
   first_name: string;
@@ -490,6 +535,13 @@ export function hasRequiredRole(
   return allowedRoles.includes(profile.role);
 }
 
+export function hasPortalRole(
+  profile: Pick<AccountProfile, "role"> | null | undefined,
+  role: PortalRole,
+) {
+  return profile?.role === role;
+}
+
 export function getPortalHomePath(role: string) {
   switch (role) {
     case "teacher":
@@ -565,7 +617,14 @@ async function readSessionAccessToken() {
   const refresh = cookieStore.get(REFRESH_COOKIE)?.value ?? "";
 
   if (access) {
-    return access;
+    try {
+      // Expiry only chooses whether to refresh; the backend still verifies
+      // the signature and live account state for every authenticated request.
+      const payload = JSON.parse(Buffer.from(access.split(".")[1], "base64url").toString("utf8"));
+      if (typeof payload.exp !== "number" || payload.exp > Date.now() / 1000 + 15) return access;
+    } catch {
+      return access; // Let the backend reject a malformed token.
+    }
   }
 
   if (!refresh) {
@@ -611,10 +670,29 @@ async function readAuthenticatedSession(): Promise<AuthenticatedSession | null> 
       accessToken,
       profile,
     };
-  } catch {
+  } catch (error) {
+    if (error instanceof AuthenticationError && [401, 403].includes(error.statusCode ?? 0)) {
+      // Cached identity never overrides an explicit revocation. An expired
+      // access token may recover once through a still-valid refresh token.
+      const refresh = cookieStore.get(REFRESH_COOKIE)?.value;
+      if (error.statusCode === 401 && refresh) {
+        try {
+          const renewed = await refreshAccessToken(refresh);
+          const profile = await requestAuthJson<AccountProfile>("/api/v1/auth/me/", {
+            headers: { Authorization: `Bearer ${renewed}` },
+          });
+          return { accessToken: renewed, profile };
+        } catch {
+          // The backend rejected recovery; clear the session below.
+        }
+      }
+      await clearSessionCookies();
+      return null;
+    }
     const shouldUseSnapshot =
       sessionSnapshot &&
-      sessionSnapshot.is_active;
+      sessionSnapshot.is_active &&
+      (!(error instanceof AuthenticationError) || (error.statusCode ?? 0) >= 500);
 
     if (shouldUseSnapshot) {
       return {
@@ -658,6 +736,10 @@ export async function requireTeacherSession() {
   if (!profile || !profile.is_active || profile.role !== "teacher") {
     await clearSessionCookies();
     redirect("/login");
+  }
+
+  if (needsProfileCompletion(profile)) {
+    redirect("/complete-profile");
   }
 
   return profile;

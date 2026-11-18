@@ -213,6 +213,7 @@ async function performParentRequest<T>(
     headers: {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
+      "X-Client-Platform": "web",
       ...(init?.headers ?? {}),
     },
     body: init?.body,

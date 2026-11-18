@@ -1,10 +1,10 @@
 import { Redirect, useRouter } from "expo-router";
-import { Text, View } from "react-native";
+import { Linking, Text, View } from "react-native";
 import { ScreenShell } from "@/components/screen-shell";
 import { HeroCard } from "@/components/hero-card";
 import { ActionButton } from "@/components/action-button";
 import { SectionBlock } from "@/components/section-block";
-import { isApiConfigured } from "@/lib/config";
+import { isApiConfigured, WEB_PORTAL_URL } from "@/lib/config";
 import { useSessionBootstrap } from "@/hooks/use-session-bootstrap";
 import { useSessionStore } from "@/store/session-store";
 import { appStyles } from "@/theme/styles";
@@ -18,39 +18,83 @@ export default function RoleGateScreen() {
     return (
       <ScreenShell>
         <HeroCard
-          eyebrow="Role Gate"
-          badge="Secure restore"
+          eyebrow="Welcome back"
+          badge="Secure session"
           title="Restoring mobile session"
-          description="Checking secure storage and validating the current account profile before choosing the correct app lane."
+          description="Checking your saved account so you can continue where you left off."
         />
       </ScreenShell>
     );
   }
 
-  if (profile?.role === "student") {
+  const needsWebProfileCompletion = Boolean(
+    profile?.profile_completion_required ||
+      profile?.onboarding_status === "not_started" ||
+      profile?.onboarding_status === "in_progress",
+  );
+
+  if (profile?.role === "student" && !needsWebProfileCompletion) {
     return <Redirect href="/(student)/(tabs)/dashboard" />;
+  }
+
+  if (profile?.role === "student" && needsWebProfileCompletion) {
+    return (
+      <ScreenShell>
+        <HeroCard
+          eyebrow="Finish setup"
+          badge="Student account"
+          title="Complete your student profile on the web"
+          description="This login is valid, but the learner profile still needs required school and program details before mobile exams can open."
+        />
+        <SectionBlock title="Complete profile" subtitle="Return here after finishing the required details">
+          <Text style={appStyles.body}>
+            Open the secure web profile form, complete setup, then sign in again on this app.
+          </Text>
+          <View style={appStyles.rowWrap}>
+            <ActionButton
+              label="Open Web Profile"
+              onPress={() => void Linking.openURL(`${WEB_PORTAL_URL}/complete-profile`)}
+              testID="role-gate-complete-profile-button"
+            />
+            <ActionButton
+              label="Back to Login"
+              tone="secondary"
+              onPress={() => router.replace("/(auth)/login")}
+            />
+          </View>
+        </SectionBlock>
+      </ScreenShell>
+    );
   }
 
   if (profile) {
     return (
       <ScreenShell>
         <HeroCard
-          eyebrow="Role Gate"
+          eyebrow="Account access"
           badge={profile.role}
-          title="This mobile build supports only the student lane"
-          description="The architecture is role-ready, but the implemented mobile lane is still limited to student auth plus the exam-focused student shell."
-          helper={`Authenticated role: ${profile.role}`}
+          title="Use the web portal for this account"
+          description="This account role is available on the Nexora web portal. The mobile app currently supports student accounts."
+          helper={`Signed in as: ${profile.role}`}
         />
         <SectionBlock
-          title="Use the currently supported lane"
-          subtitle="This mobile build is limited intentionally during the first release cycle"
+          title="Continue with a student account"
+          subtitle="Sign in on the web portal to use this role"
         >
           <Text style={appStyles.body}>
-            Sign out here and continue with a student account, or use the web platform for this role until the mobile lane is implemented.
+            Return to login to use a student account, or continue on the web portal with this account.
           </Text>
           <View style={appStyles.rowWrap}>
             <ActionButton
+              label="Open Web Portal"
+              onPress={() =>
+                void Linking.openURL(`${WEB_PORTAL_URL}/login?role=${profile.role}`)
+              }
+              testID="role-gate-open-web-button"
+            />
+            <ActionButton
               label="Open Login"
+              tone="secondary"
               onPress={() => router.replace("/(auth)/login")}
               testID="role-gate-open-login-button"
             />
@@ -64,10 +108,10 @@ export default function RoleGateScreen() {
     return (
       <ScreenShell>
         <HeroCard
-          eyebrow="Configuration"
-          badge="Setup needed"
-          title="Set EXPO_PUBLIC_API_BASE_URL before wiring live auth"
-          description="This route is the mobile role resolver. Once the API base URL and auth integration are connected, it should decide whether the student enters the exam-first mobile student shell or sees a controlled unsupported-role state."
+          eyebrow="Service unavailable"
+          badge="Connection needed"
+          title="Nexora mobile is not configured"
+          description="The app cannot reach the account service. Contact your administrator or try again after the service is configured."
         />
       </ScreenShell>
     );
@@ -76,11 +120,11 @@ export default function RoleGateScreen() {
   return (
     <ScreenShell>
       <HeroCard
-        eyebrow="Role Gate"
-        badge="Student mobile MVP"
+        eyebrow="Student access"
+        badge="Nexora Mobile"
         title="No active mobile session yet"
-        description="When auth is connected, this route should inspect the secure session, resolve the role, and continue only into the student mobile shell for the current exam-first release."
-        helper={bootError ?? "Continue with login or registration to enter the student mobile experience."}
+        description="Sign in to open your assigned exams, results, and learning progress."
+        helper={bootError ?? "Log in with an existing student account or register a new one."}
       />
       {bootError ? (
         <View style={appStyles.errorPanel}>
@@ -88,10 +132,10 @@ export default function RoleGateScreen() {
         </View>
       ) : null}
       <SectionBlock
-        title="Continue into the student lane"
-        subtitle="Choose the shortest path into the live mobile experience"
+        title="Continue as a student"
+        subtitle="Choose login or create a new account"
       >
-        <Text style={appStyles.body}>Continue with register or login to enter the student lane.</Text>
+        <Text style={appStyles.body}>Use your student credentials to continue securely.</Text>
         <View style={appStyles.rowWrap}>
           <ActionButton
             label="Login"

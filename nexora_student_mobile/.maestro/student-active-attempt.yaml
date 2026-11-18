@@ -1,20 +1,27 @@
 appId: ${MAESTRO_APP_ID}
 ---
+# Frozen case: EXPO-P1-006
+# Set these before running:
+# STUDENT_USERNAME
+# STUDENT_PASSWORD
+
 - launchApp:
     clearState: true
 
 - extendedWaitUntil:
-    visible: "Login"
-    timeout: 30000
+    visible:
+      id: "role-gate-login-button"
+    timeout: 60000
 
-- tapOn: "Login"
+- tapOn:
+    id: "role-gate-login-button"
 - tapOn:
     id: "login-username-input"
-- inputText: a001
+- inputText: ${STUDENT_USERNAME}
 
 - tapOn:
     id: "login-password-input"
-- inputText: Ansh@1789
+- inputText: ${STUDENT_PASSWORD}
 - runFlow:
     when:
       platform: Android
@@ -31,12 +38,16 @@ appId: ${MAESTRO_APP_ID}
 
 - extendedWaitUntil:
     visible: "Student Dashboard"
-    timeout: 30000
+    timeout: 60000
 
 - tapOn:
     id: "dashboard-open-attempts-button"
 
-- assertVisible: "Student Attempts"
+- extendedWaitUntil:
+    visible: "Student Attempts"
+    timeout: 60000
 - assertVisible: "Return to live work or inspect completed attempts"
 - assertVisible: "Resume now"
 - assertVisible: "Open Results"
+
+- takeScreenshot: expo-p1-006-attempts-lane

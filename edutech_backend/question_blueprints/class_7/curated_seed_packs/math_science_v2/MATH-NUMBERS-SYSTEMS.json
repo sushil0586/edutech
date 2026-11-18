@@ -447,7 +447,7 @@
     {
       "question_type": "mcq_single",
       "difficulty_level": "intermediate",
-      "question_text": "Which list is arranged from smallest to largest?",
+      "question_text": "Which mixed Indian and International notation list is arranged from smallest to largest?",
       "explanation": "Convert all to one system before comparing. 5,07,09,210 = 50,709,210, 50,790,210 stays the same, and 5,08,09,210 = 50,809,210. So the correct order is 5,07,09,210, 50,790,210, 5,08,09,210.",
       "default_marks": "1.00",
       "negative_marks": "0.25",

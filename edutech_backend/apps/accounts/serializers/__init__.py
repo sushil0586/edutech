@@ -10,20 +10,72 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.settings import api_settings as jwt_settings
+from rest_framework_simplejwt.utils import get_md5_hash_password
+from rest_framework.exceptions import AuthenticationFailed
 
 from apps.academics.models import Subject
-from apps.accounts.models import AccountProfile
+from apps.accounts.access import ensure_account_access
+from apps.accounts.models import AccountProfile, SupportRequest
 from apps.accounts.services import (
     complete_public_onboarding,
     create_public_registration_account,
     validate_confirmed_password,
+    confirm_password_reset,
 )
 from apps.economy.services import get_or_create_student_referral_code
 from apps.geography.services import resolve_location_selection
 
 
 User = get_user_model()
-LOGIN_SUCCESS_CACHE_TTL_SECONDS = 60
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    identifier = serializers.CharField(max_length=254)
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    request = serializers.UUIDField()
+    token = serializers.CharField(min_length=20, max_length=200)
+    new_password = serializers.CharField(write_only=True)
+    confirm_password = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        if attrs["new_password"] != attrs["confirm_password"]:
+            raise serializers.ValidationError({"confirm_password": "Password confirmation does not match."})
+        return attrs
+
+    def save(self, **kwargs):
+        try:
+            return confirm_password_reset(
+                request_id=self.validated_data["request"],
+                raw_token=self.validated_data["token"],
+                new_password=self.validated_data["new_password"],
+            )
+        except DjangoValidationError as exc:
+            detail = exc.message_dict if getattr(exc, "message_dict", None) else {"new_password": exc.messages}
+            raise serializers.ValidationError(detail) from exc
+
+
+class SupportRequestSerializer(serializers.ModelSerializer):
+    requester_username = serializers.CharField(source="requester.username", read_only=True)
+
+    class Meta:
+        model = SupportRequest
+        fields = (
+            "id", "requester", "requester_username", "institute", "category",
+            "subject", "description", "status", "created_at", "updated_at",
+            "resolution_notes", "resolved_by", "resolved_at",
+        )
+        read_only_fields = (
+            "requester", "institute", "status", "resolution_notes", "resolved_by",
+            "resolved_at", "created_at", "updated_at",
+        )
+
+
+class SupportRequestResolutionSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices=("in_progress", "resolved", "closed"))
+    resolution_notes = serializers.CharField(min_length=3)
 
 
 def _login_success_cache_key(*, username, password_hash):
@@ -58,12 +110,13 @@ class AccountProfileSerializer(serializers.ModelSerializer):
     email = serializers.CharField(source="user.email", read_only=True)
     display_name = serializers.SerializerMethodField()
     institute_name = serializers.SerializerMethodField()
+    institute_access_suspended = serializers.BooleanField(source="institute.is_suspended", read_only=True, default=False)
     student_context = serializers.SerializerMethodField()
     parent_context = serializers.SerializerMethodField()
     location_context = serializers.SerializerMethodField()
     acquisition_context = serializers.SerializerMethodField()
 
-    def get_display_name(self, obj):
+    def get_display_name(self, obj) -> str:
         student_profile = getattr(obj, "student_profile", None)
         if student_profile and student_profile.full_name.strip():
             return student_profile.full_name.strip()
@@ -84,13 +137,13 @@ class AccountProfileSerializer(serializers.ModelSerializer):
             return full_name
         return getattr(user, "username", "")
 
-    def get_institute_name(self, obj):
+    def get_institute_name(self, obj) -> str | None:
         institute = getattr(obj, "institute", None)
         if institute and getattr(institute, "name", "").strip():
             return institute.name.strip()
         return None
 
-    def get_student_context(self, obj):
+    def get_student_context(self, obj) -> dict | None:
         if obj.role != "student" or obj.student_profile_id is None:
             return None
 
@@ -148,7 +201,7 @@ class AccountProfileSerializer(serializers.ModelSerializer):
             ],
         }
 
-    def get_parent_context(self, obj):
+    def get_parent_context(self, obj) -> dict | None:
         if obj.role != "parent":
             return None
         parent_profile = getattr(obj, "parent_profile", None)
@@ -165,7 +218,7 @@ class AccountProfileSerializer(serializers.ModelSerializer):
             "has_active_links": active_relationships > 0,
         }
 
-    def get_location_context(self, obj):
+    def get_location_context(self, obj) -> dict | None:
         location_profile = getattr(obj, "location_profile", None)
         if location_profile is None:
             return None
@@ -185,7 +238,7 @@ class AccountProfileSerializer(serializers.ModelSerializer):
             "confirmed_at": location_profile.confirmed_at,
         }
 
-    def get_acquisition_context(self, obj):
+    def get_acquisition_context(self, obj) -> dict:
         acquisition_profile = getattr(obj, "acquisition_profile", None)
         if acquisition_profile is None:
             return None
@@ -219,6 +272,7 @@ class AccountProfileSerializer(serializers.ModelSerializer):
             "role",
             "institute",
             "institute_name",
+            "institute_access_suspended",
             "student_profile",
             "teacher_profile",
             "registration_context",
@@ -240,8 +294,9 @@ class LoginAccountProfileSerializer(serializers.ModelSerializer):
     email = serializers.CharField(source="user.email", read_only=True)
     display_name = serializers.SerializerMethodField()
     institute_name = serializers.SerializerMethodField()
+    institute_access_suspended = serializers.BooleanField(source="institute.is_suspended", read_only=True, default=False)
 
-    def get_display_name(self, obj):
+    def get_display_name(self, obj) -> str:
         student_profile = getattr(obj, "student_profile", None)
         if student_profile and student_profile.full_name.strip():
             return student_profile.full_name.strip()
@@ -262,7 +317,7 @@ class LoginAccountProfileSerializer(serializers.ModelSerializer):
             return full_name
         return getattr(user, "username", "")
 
-    def get_institute_name(self, obj):
+    def get_institute_name(self, obj) -> str | None:
         institute = getattr(obj, "institute", None)
         if institute and getattr(institute, "name", "").strip():
             return institute.name.strip()
@@ -278,6 +333,7 @@ class LoginAccountProfileSerializer(serializers.ModelSerializer):
             "role",
             "institute",
             "institute_name",
+            "institute_access_suspended",
             "student_profile",
             "teacher_profile",
             "registration_context",
@@ -325,13 +381,15 @@ class LoginSerializer(serializers.Serializer):
         if profile is None or not profile.is_active:
             raise serializers.ValidationError({"detail": "Account profile is inactive or missing."})
 
+        ensure_account_access(user)
+
         cache.set(
             _login_success_cache_key(
                 username=username,
                 password_hash=user.password,
             ),
             _login_password_digest(password),
-            LOGIN_SUCCESS_CACHE_TTL_SECONDS,
+            settings.LOGIN_SUCCESS_CACHE_TTL_SECONDS,
         )
 
         attrs["user"] = user
@@ -350,7 +408,18 @@ class LoginSerializer(serializers.Serializer):
 
 
 class RefreshTokenSerializer(TokenRefreshSerializer):
-    pass
+    def validate(self, attrs):
+        # Validate the token first, then re-check live account state. Token claims
+        # must not retain access after a profile or tenant is disabled.
+        payload = super().validate(attrs)
+        token = self.token_class(attrs["refresh"])
+        user = User.objects.filter(pk=token["user_id"]).first()
+        ensure_account_access(user)
+        if jwt_settings.CHECK_REVOKE_TOKEN and not hmac.compare_digest(
+            str(token.get(jwt_settings.REVOKE_TOKEN_CLAIM, "")), get_md5_hash_password(user.password)
+        ):
+            raise AuthenticationFailed("Credentials changed. Please sign in again.", code="password_changed")
+        return payload
 
 
 class CredentialStatusMixin(serializers.Serializer):
@@ -359,19 +428,19 @@ class CredentialStatusMixin(serializers.Serializer):
     login_is_active = serializers.SerializerMethodField()
     account_user_id = serializers.SerializerMethodField()
 
-    def get_has_login(self, obj):
+    def get_has_login(self, obj) -> bool:
         return hasattr(obj, "account_profile") and obj.account_profile is not None
 
-    def get_login_username(self, obj):
+    def get_login_username(self, obj) -> str | None:
         profile = getattr(obj, "account_profile", None)
         return getattr(getattr(profile, "user", None), "username", None)
 
-    def get_login_is_active(self, obj):
+    def get_login_is_active(self, obj) -> bool:
         profile = getattr(obj, "account_profile", None)
         user = getattr(profile, "user", None)
         return bool(user and user.is_active)
 
-    def get_account_user_id(self, obj):
+    def get_account_user_id(self, obj) -> int | None:
         profile = getattr(obj, "account_profile", None)
         user = getattr(profile, "user", None)
         return getattr(user, "id", None)

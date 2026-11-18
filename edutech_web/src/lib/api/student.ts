@@ -3,13 +3,15 @@ import {
   DashboardData,
   NotificationUnreadCount,
   PaginatedResponse,
-  StudentAvailableExam,
+  StudentExamCatalog,
   StudentAttemptAnswer,
   StudentAttemptDetail,
   StudentAttemptListItem,
   StudentAttemptReview,
   StudentAttemptSummary,
+  StudentDashboardExam,
   StudentExamDetail,
+  StudentExamDiscovery,
   StudentInsightSummary,
   StudentQuestionAnalytics,
   StudentUploadedResponseArtifact,
@@ -79,6 +81,7 @@ async function performStudentRequest<T>(
     method: init?.method ?? "GET",
     headers: {
       Authorization: `Bearer ${accessToken}`,
+      "X-Client-Platform": "web",
       ...(isFormDataBody ? {} : { "Content-Type": "application/json" }),
       ...(init?.headers ?? {}),
     },
@@ -161,12 +164,15 @@ export async function fetchStudentInsightSummary() {
 export type StudentAvailableExamFilters = {
   source?: "all" | "platform" | "institute" | "teacher";
   teacher?: string | null;
+  examType?: string | null;
+  excludeExamType?: string | null;
 };
 
 export async function fetchStudentAvailableExams(
   filters?: StudentAvailableExamFilters,
 ) {
   const query = new URLSearchParams();
+  query.set("catalog", "true");
 
   if (filters?.source && filters.source !== "all") {
     query.set("source", filters.source);
@@ -176,10 +182,42 @@ export async function fetchStudentAvailableExams(
     query.set("teacher", filters.teacher);
   }
 
+  if (filters?.examType) {
+    query.set("exam_type", filters.examType);
+  }
+
+  if (filters?.excludeExamType) {
+    query.set("exclude_exam_type", filters.excludeExamType);
+  }
+
   const queryString = query.toString();
-  return fetchStudentJson<StudentAvailableExam[]>(
+  return fetchStudentJson<StudentExamCatalog[]>(
     `/api/v1/student/exams/available/${queryString ? `?${queryString}` : ""}`,
   );
+}
+
+export async function fetchStudentExamDiscovery(
+  filters?: StudentAvailableExamFilters,
+) {
+  const query = new URLSearchParams();
+
+  query.set("discovery", "true");
+
+  if (filters?.source && filters.source !== "all") {
+    query.set("source", filters.source);
+  }
+
+  if (filters?.source === "teacher" && filters.teacher) {
+    query.set("teacher", filters.teacher);
+  }
+
+  return fetchStudentJson<StudentExamDiscovery[]>(
+    `/api/v1/student/exams/available/?${query.toString()}`,
+  );
+}
+
+export async function fetchStudentDashboardExams() {
+  return fetchStudentJson<StudentDashboardExam[]>("/api/v1/student/exams/available/?dashboard=true");
 }
 
 export async function fetchStudentPracticeFollowUpExams(
@@ -212,7 +250,14 @@ export async function fetchStudentWalletSummary() {
   return fetchStudentJson<StudentWalletSummary>("/api/v1/economy/wallet/");
 }
 
-export async function fetchStudentWalletLedger() {
+export function fetchStudentWalletLedger(): Promise<StudentStarLedgerEntry[]>;
+export function fetchStudentWalletLedger(params: { page: number; pageSize: number }): Promise<PaginatedResponse<StudentStarLedgerEntry>>;
+export async function fetchStudentWalletLedger(params?: { page: number; pageSize: number }) {
+  if (params) {
+    return fetchStudentJson<PaginatedResponse<StudentStarLedgerEntry>>(
+      `/api/v1/economy/ledger/?page=${params.page}&page_size=${params.pageSize}`,
+    );
+  }
   return fetchStudentJson<StudentStarLedgerEntry[]>("/api/v1/economy/ledger/");
 }
 
@@ -254,7 +299,14 @@ export async function fetchStudentSubscriptionPlans() {
   );
 }
 
-export async function fetchStudentPaymentOrders() {
+export function fetchStudentPaymentOrders(): Promise<StudentPaymentOrder[]>;
+export function fetchStudentPaymentOrders(params: { page: number; pageSize: number }): Promise<PaginatedResponse<StudentPaymentOrder> & { pending_count: number }>;
+export async function fetchStudentPaymentOrders(params?: { page: number; pageSize: number }) {
+  if (params) {
+    return fetchStudentJson<PaginatedResponse<StudentPaymentOrder> & { pending_count: number }>(
+      `/api/v1/economy/orders/?page=${params.page}&page_size=${params.pageSize}`,
+    );
+  }
   return fetchStudentJson<StudentPaymentOrder[]>("/api/v1/economy/orders/");
 }
 
@@ -453,6 +505,7 @@ export async function startStudentAttempt(examId: string, studentId: string) {
 export async function saveStudentAnswer(
   attemptId: string,
   payload: {
+    expected_answer_updated_at?: string | null;
     question: string;
     selected_option?: string | null;
     selected_option_ids?: string[];
@@ -550,7 +603,7 @@ export async function getStudentDashboardData(): Promise<DashboardData> {
   try {
     const [summary, exams] = await Promise.all([
       fetchStudentInsightSummary(),
-      fetchStudentAvailableExams(),
+      fetchStudentDashboardExams(),
     ]);
 
     return {

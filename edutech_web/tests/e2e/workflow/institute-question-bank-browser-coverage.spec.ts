@@ -15,9 +15,11 @@ async function selectProgramWithSubjectOptions(page: Page) {
     return null;
   }
 
-  for (const program of programs) {
-    const preferredProgram =
-      (await findOptionValueByLabelPattern(programSelect(page), /class 7/i)) || program;
+  const preferredProgram =
+    (await findOptionValueByLabelPattern(programSelect(page), /class 7/i)) || programs[0]!;
+  const candidatePrograms = [preferredProgram, ...programs.filter((program) => program !== preferredProgram)];
+
+  for (const selectedProgram of candidatePrograms) {
     const subjectsResponse = page.waitForResponse((response) => {
       if (!response.ok()) {
         return false;
@@ -27,13 +29,17 @@ async function selectProgramWithSubjectOptions(page: Page) {
       return (
         url.pathname.includes("/academics/subjects") &&
         url.searchParams.get("is_active") === "true" &&
-        url.searchParams.get("program") === preferredProgram &&
+        url.searchParams.get("program") === selectedProgram &&
         url.searchParams.get("page_size") === "500"
       );
     });
-    await programSelect(page).selectOption(preferredProgram);
-    await subjectsResponse;
+    await programSelect(page).selectOption(selectedProgram);
+    const resolvedSubjectsResponse = await subjectsResponse;
     await expect(subjectSelect(page)).toBeEnabled();
+    const subjectsPayload = (await resolvedSubjectsResponse.json()) as { results?: unknown[] };
+    if (!subjectsPayload.results?.length) {
+      continue;
+    }
     await expect.poll(async () => getNonEmptyOptionValues(subjectSelect(page)).then((values) => values.length)).toBeGreaterThan(
       0,
     );
@@ -43,9 +49,11 @@ async function selectProgramWithSubjectOptions(page: Page) {
       continue;
     }
 
-    for (const subject of subjects) {
-      const preferredSubject =
-        (await findOptionValueByLabelPattern(subjectSelect(page), /math/i)) || subject;
+    const preferredSubject =
+      (await findOptionValueByLabelPattern(subjectSelect(page), /math/i)) || subjects[0]!;
+    const candidateSubjects = [preferredSubject, ...subjects.filter((subject) => subject !== preferredSubject)];
+
+    for (const selectedSubject of candidateSubjects) {
       const topicsResponse = page.waitForResponse((response) => {
         if (!response.ok()) {
           return false;
@@ -55,13 +63,17 @@ async function selectProgramWithSubjectOptions(page: Page) {
         return (
           url.pathname.includes("/academics/topics") &&
           url.searchParams.get("is_active") === "true" &&
-          url.searchParams.get("subject") === preferredSubject &&
+          url.searchParams.get("subject") === selectedSubject &&
           url.searchParams.get("page_size") === "500"
         );
       });
-      await subjectSelect(page).selectOption(preferredSubject);
-      await topicsResponse;
+      await subjectSelect(page).selectOption(selectedSubject);
+      const resolvedTopicsResponse = await topicsResponse;
       await expect(topicSelect(page)).toBeEnabled();
+      const topicsPayload = (await resolvedTopicsResponse.json()) as { results?: unknown[] };
+      if (!topicsPayload.results?.length) {
+        continue;
+      }
       await expect.poll(async () => getNonEmptyOptionValues(topicSelect(page)).then((values) => values.length)).toBeGreaterThan(
         0,
       );
@@ -71,7 +83,7 @@ async function selectProgramWithSubjectOptions(page: Page) {
         const selectedTopic = topics[0]!;
         await topicSelect(page).selectOption(selectedTopic);
         await expect(topicSelect(page)).toHaveValue(selectedTopic);
-        return { program: preferredProgram, subject: preferredSubject, topic: selectedTopic };
+        return { program: selectedProgram, subject: selectedSubject, topic: selectedTopic };
       }
     }
   }

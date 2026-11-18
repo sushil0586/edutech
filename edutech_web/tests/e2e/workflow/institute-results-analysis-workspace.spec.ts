@@ -58,9 +58,9 @@ test.describe("Institute results analysis workspace", () => {
     "Institute Playwright credentials are not configured.",
   );
 
-  test("@workflow institute can filter and drill through the results analysis workspace", async ({
+  test("@workflow [IR-P0-002] institute can filter and drill through the results analysis workspace", async ({
     page,
-  }) => {
+  }, testInfo) => {
     await loginAsRole(page, "institute");
     await expectInstituteWorkspace(page);
 
@@ -133,5 +133,6 @@ test.describe("Institute results analysis workspace", () => {
         .poll(async () => page.locator('a[href^="/institute/exams/"][href$="/builder"]').count())
         .toBeGreaterThan(0);
     }
+    await page.screenshot({ path: testInfo.outputPath("IR-P0-002-results-analysis.png"), fullPage: true });
   });
 });

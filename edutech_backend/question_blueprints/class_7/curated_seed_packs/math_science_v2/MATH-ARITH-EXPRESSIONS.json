@@ -191,7 +191,7 @@
       "negative_marks": "0.25",
       "options": [
         {
-          "option_text": "8 + 5 - 3",
+          "option_text": "8 - 5 + 3",
           "is_correct": false
         },
         {
@@ -495,7 +495,7 @@
           "is_correct": true
         },
         {
-          "option_text": "9 + 6 - 4",
+          "option_text": "9 - 6 + 4",
           "is_correct": false
         },
         {
@@ -791,7 +791,7 @@
       "negative_marks": "0.25",
       "options": [
         {
-          "option_text": "10 + 7 - 5",
+          "option_text": "10 - 7 + 5",
           "is_correct": false
         },
         {
@@ -1095,7 +1095,7 @@
           "is_correct": true
         },
         {
-          "option_text": "11 + 8 - 6",
+          "option_text": "11 - 8 + 6",
           "is_correct": false
         },
         {
@@ -1391,7 +1391,7 @@
       "negative_marks": "0.25",
       "options": [
         {
-          "option_text": "12 + 9 - 7",
+          "option_text": "12 - 9 + 7",
           "is_correct": false
         },
         {

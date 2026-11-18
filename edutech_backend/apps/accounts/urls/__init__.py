@@ -20,6 +20,10 @@ from apps.accounts.views import (
     TeacherQuestionListView,
     TeacherQuestionPerformanceView,
     TeacherResultSummaryView,
+    PasswordResetRequestView,
+    PasswordResetConfirmView,
+    SupportRequestListCreateView,
+    SupportRequestResolveView,
 )
 
 app_name = "accounts"
@@ -29,6 +33,10 @@ urlpatterns = [
     path("auth/register/options/", PublicRegistrationOptionsView.as_view(), name="register-options"),
     path("auth/refresh/", RefreshSessionView.as_view(), name="refresh"),
     path("auth/me/", MeView.as_view(), name="me"),
+    path("auth/password-reset/request/", PasswordResetRequestView.as_view(), name="password-reset-request"),
+    path("auth/password-reset/confirm/", PasswordResetConfirmView.as_view(), name="password-reset-confirm"),
+    path("support/requests/", SupportRequestListCreateView.as_view(), name="support-requests"),
+    path("support/requests/<uuid:request_id>/", SupportRequestResolveView.as_view(), name="support-request-resolve"),
     path("onboarding/profile/", OnboardingProfileView.as_view(), name="onboarding-profile"),
     path("student/exams/available/", StudentAvailableExamView.as_view(), name="student-available-exams"),
     path("student/exams/resolve-key/", StudentExamAccessKeyResolveView.as_view(), name="student-exam-resolve-key"),

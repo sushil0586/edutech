@@ -1,13 +1,13 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Text, TextInput, View } from "react-native";
+import { Linking, Text, TextInput, View } from "react-native";
 import { ScreenShell } from "@/components/screen-shell";
 import { HeroCard } from "@/components/hero-card";
 import { ActionButton } from "@/components/action-button";
 import { SectionBlock } from "@/components/section-block";
 import { MobileApiError, getLatestMobileApiTrace } from "@/lib/api/client";
 import { loginStudent } from "@/lib/api/auth";
-import { API_BASE_URL, API_REQUEST_TIMEOUT_MS, SHOW_MOBILE_DEBUG_PANEL } from "@/lib/config";
+import { API_BASE_URL, API_REQUEST_TIMEOUT_MS, SHOW_MOBILE_DEBUG_PANEL, WEB_PORTAL_URL } from "@/lib/config";
 import { persistSession } from "@/lib/secure-session";
 import { useSessionStore } from "@/store/session-store";
 import { appStyles } from "@/theme/styles";
@@ -125,13 +125,13 @@ export default function LoginScreen() {
         eyebrow="Student Login"
         badge="Nexora Mobile"
         title="Sign in and continue learning"
-        description="The student lane is the only mobile implementation in scope right now. Role branching will happen after authentication through a shared role gate."
-        helper="Use your existing student credentials. After sign-in, the role gate restores the right mobile lane automatically."
+        description="Open your student dashboard, assigned exams, results, and progress from one secure account."
+        helper="Use the same student credentials you use on the Nexora web portal."
       />
       <View style={appStyles.formCard}>
         <View style={appStyles.cardHeader}>
           <Text style={appStyles.sectionTitle}>Welcome back</Text>
-          <Text style={appStyles.sectionSubtitle}>Minimal friction, live authentication, and direct entry into the student workspace.</Text>
+          <Text style={appStyles.sectionSubtitle}>Enter your account details to open your student workspace.</Text>
         </View>
         <View style={appStyles.formSection}>
           <View style={appStyles.formSectionHeader}>
@@ -141,6 +141,8 @@ export default function LoginScreen() {
           <View style={appStyles.fieldStack}>
             <Text style={appStyles.label}>Username</Text>
             <TextInput
+              accessibilityLabel="Username"
+              accessibilityHint="Enter your Nexora student username"
               autoCapitalize="none"
               autoCorrect={false}
               autoComplete="username"
@@ -157,6 +159,8 @@ export default function LoginScreen() {
           <View style={appStyles.fieldStack}>
             <Text style={appStyles.label}>Password</Text>
             <TextInput
+              accessibilityLabel="Password"
+              accessibilityHint="Enter your Nexora student password"
               autoCapitalize="none"
               autoCorrect={false}
               autoComplete="password"
@@ -172,7 +176,8 @@ export default function LoginScreen() {
             {fieldErrors.password ? <Text style={appStyles.fieldError}>{fieldErrors.password}</Text> : null}
           </View>
         </View>
-        {message ? <Text style={appStyles.errorText}>{message}</Text> : null}
+        {message ? <Text accessibilityLiveRegion="polite" role="alert" style={appStyles.errorText}>{message}</Text> : null}
+        <ActionButton label="Forgot Password" tone="secondary" onPress={() => void Linking.openURL(`${WEB_PORTAL_URL}/forgot-password`)} testID="login-forgot-password-button" />
         {SHOW_MOBILE_DEBUG_PANEL ? (
           <View style={appStyles.errorPanel}>
             <Text style={appStyles.label}>Dev Debug</Text>
@@ -215,7 +220,7 @@ export default function LoginScreen() {
         action={<ActionButton label="Register" tone="secondary" onPress={() => router.push("/(auth)/register")} testID="login-register-button" />}
       >
         <Text style={appStyles.body}>
-          Create a student account, then the same role gate will bring you into the mobile dashboard, exam flow, and analytics lane.
+          Create a student account to access the mobile dashboard, exams, and progress insights.
         </Text>
       </SectionBlock>
     </ScreenShell>

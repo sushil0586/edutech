@@ -22,6 +22,10 @@ function resolveApiBaseUrl() {
 
 export const API_BASE_URL = resolveApiBaseUrl();
 
+export const WEB_PORTAL_URL = (
+  process.env.EXPO_PUBLIC_WEB_PORTAL_URL ?? API_BASE_URL
+).replace(/\/$/, "");
+
 function parseTimeout(value: string | undefined) {
   if (!value) {
     return 20_000;

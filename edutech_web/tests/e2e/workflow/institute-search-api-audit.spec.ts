@@ -141,8 +141,8 @@ test.describe("Institute search API audit", () => {
 
       const expectedServerRenderContract = {
         "live-query=q": [
-          "/api/v1/teacher/exams/",
-          "/api/v1/teacher/results/summary/",
+          "/api/v1/teacher/exams/?page_size=8&search=exam",
+          "/api/v1/teacher/results/summary/?page_size=8&search=exam",
           "/api/v1/question-bank/questions/?compact=true&page_size=8&search=exam",
         ],
         "filter-param-contract": [

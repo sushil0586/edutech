@@ -144,7 +144,7 @@ Explanation:
 First add 8 and 5, then subtract 3.
 
 Options:
-- [ ] 8 + 5 - 3
+- [ ] 8 - 5 + 3
 - [ ] 8 - (5 + 3)
 - [x] (8 + 5) - 3
 - [ ] (8 - 5) - 3
@@ -335,7 +335,7 @@ First add 9 and 6, then subtract 4.
 
 Options:
 - [x] (9 + 6) - 4
-- [ ] 9 + 6 - 4
+- [ ] 9 - 6 + 4
 - [ ] 9 - (6 + 4)
 - [ ] (9 - 6) - 4
 
@@ -524,7 +524,7 @@ Explanation:
 First add 10 and 7, then subtract 5.
 
 Options:
-- [ ] 10 + 7 - 5
+- [ ] 10 - 7 + 5
 - [ ] 10 - (7 + 5)
 - [x] (10 + 7) - 5
 - [ ] (10 - 7) - 5
@@ -715,7 +715,7 @@ First add 11 and 8, then subtract 6.
 
 Options:
 - [x] (11 + 8) - 6
-- [ ] 11 + 8 - 6
+- [ ] 11 - 8 + 6
 - [ ] 11 - (8 + 6)
 - [ ] (11 - 8) - 6
 
@@ -904,7 +904,7 @@ Explanation:
 First add 12 and 9, then subtract 7.
 
 Options:
-- [ ] 12 + 9 - 7
+- [ ] 12 - 9 + 7
 - [ ] 12 - (9 + 7)
 - [x] (12 + 9) - 7
 - [ ] (12 - 9) - 7

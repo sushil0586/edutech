@@ -1,4 +1,6 @@
 import { API_BASE_URL, API_REQUEST_TIMEOUT_MS, isApiConfigured } from "@/lib/config";
+import { clearPersistedSession, persistSession } from "@/lib/secure-session";
+import { useSessionStore } from "@/store/session-store";
 
 function firstError(value: unknown) {
   if (Array.isArray(value)) {
@@ -32,6 +34,56 @@ export type MobileApiTrace = {
 };
 
 let latestMobileApiTrace: MobileApiTrace | null = null;
+let refreshRequest: Promise<string> | null = null;
+
+async function renewAccessToken() {
+  const session = useSessionStore.getState();
+  if (!session.refreshToken || !session.profile) {
+    throw new MobileApiError("Your session has expired. Please sign in again.", undefined, 401);
+  }
+
+  if (!refreshRequest) {
+    refreshRequest = (async () => {
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/refresh/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh: session.refreshToken }),
+      });
+      if (!response.ok) {
+        throw new MobileApiError("Your session has expired. Please sign in again.", undefined, response.status);
+      }
+      const payload = (await response.json()) as { access?: string };
+      if (!payload.access) {
+        throw new MobileApiError("Your session has expired. Please sign in again.", undefined, 401);
+      }
+      const current = useSessionStore.getState();
+      if (!current.refreshToken || !current.profile) {
+        throw new MobileApiError("Your session has expired. Please sign in again.", undefined, 401);
+      }
+      current.setSession({
+        accessToken: payload.access,
+        refreshToken: current.refreshToken,
+        profile: current.profile,
+      });
+      await persistSession({
+        accessToken: payload.access,
+        refreshToken: current.refreshToken,
+        profile: current.profile,
+      });
+      return payload.access;
+    })()
+      .catch(async (error) => {
+        useSessionStore.getState().clearSession();
+        await clearPersistedSession();
+        throw error;
+      })
+      .finally(() => {
+        refreshRequest = null;
+      });
+  }
+
+  return refreshRequest;
+}
 
 export function getLatestMobileApiTrace() {
   return latestMobileApiTrace;
@@ -58,6 +110,7 @@ export async function requestJson<T>(
   path: string,
   init?: RequestInit,
   accessToken?: string | null,
+  allowRefresh = true,
 ) {
   if (!isApiConfigured()) {
     throw new MobileApiError("EXPO_PUBLIC_API_BASE_URL is not configured.");
@@ -132,6 +185,11 @@ export async function requestJson<T>(
   }
 
   clearTimeout(timeoutId);
+
+  if (response.status === 401 && accessToken && allowRefresh && path !== "/api/v1/auth/refresh/") {
+    const renewedAccessToken = await renewAccessToken();
+    return requestJson<T>(path, init, renewedAccessToken, false);
+  }
 
   if (!response.ok) {
     const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;

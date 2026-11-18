@@ -69,6 +69,7 @@ test.describe("Teacher multi-subject results contract", () => {
       !exam,
       "Mixed-subject seeded demo exam is not available in this environment, so this contract cannot assert teacher parity here.",
     );
+    if (!exam) return;
 
     await page.goto(`/teacher/results?exam=${encodeURIComponent(exam.id)}`);
     await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();

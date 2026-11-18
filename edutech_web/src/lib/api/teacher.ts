@@ -8,6 +8,7 @@ import {
   TeacherExamAttempt,
   TeacherExamAttemptPage,
   AdminExamRuntimeSummary,
+  AdminActivationSummary,
   TeacherExamPublishReadiness,
   TeacherAttemptIntervention,
   TeacherInsightSummary,
@@ -54,6 +55,7 @@ async function performTeacherRequest<T>(
     headers: {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
+      "X-Client-Platform": "web",
       ...(init?.headers ?? {}),
     },
     body: init?.body,
@@ -111,7 +113,7 @@ async function requestTeacherJson<T>(
   }
 
   const method = init?.method ?? "GET";
-  const shouldUseCachedRead = method === "GET" && !init?.body && !init?.headers;
+  const shouldUseCachedRead = method === "GET" && !init?.body && !init?.headers && init?.cache == null;
 
   if (shouldUseCachedRead) {
     return requestTeacherJsonCached<T>(path, accessToken);
@@ -165,7 +167,7 @@ export async function fetchTeacherExamPage(
 }
 
 export async function fetchTeacherExamDetail(examId: string) {
-  return requestTeacherJson<TeacherExam>(`/api/v1/exams/${examId}/`);
+  return requestTeacherJson<TeacherExam>(`/api/v1/exams/${examId}/`, { cache: "no-store" });
 }
 
 export async function fetchTeacherExamPublishReadiness(examId: string) {
@@ -173,7 +175,7 @@ export async function fetchTeacherExamPublishReadiness(examId: string) {
     success?: boolean;
     message?: string;
     data: TeacherExamPublishReadiness;
-  }>(`/api/v1/exams/${examId}/publish-readiness/`);
+  }>(`/api/v1/exams/${examId}/publish-readiness/`, { cache: "no-store" });
   return response.data;
 }
 
@@ -181,14 +183,42 @@ export async function fetchTeacherInsightSummary() {
   return requestTeacherJson<TeacherInsightSummary>("/api/v1/teacher/insights/summary/");
 }
 
-export async function fetchTeacherResultSummary() {
-  return requestTeacherJson<TeacherResultSummary[]>("/api/v1/teacher/results/summary/");
+export async function fetchTeacherResultSummary(options?: {
+  search?: string;
+  pageSize?: number;
+}) {
+  const params = new URLSearchParams();
+  if (options?.search?.trim()) params.set("search", options.search.trim());
+  if (options?.pageSize) params.set("page_size", String(options.pageSize));
+  const query = params.toString();
+  return requestTeacherJson<TeacherResultSummary[]>(`/api/v1/teacher/results/summary/${query ? `?${query}` : ""}`);
+}
+
+export async function fetchTeacherResultSummaryPage(options?: {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+}) {
+  const params = new URLSearchParams();
+  if (options?.page && options.page > 1) params.set("page", String(options.page));
+  if (options?.pageSize) params.set("page_size", String(options.pageSize));
+  if (options?.search?.trim()) params.set("search", options.search.trim());
+  const query = params.toString();
+  return requestTeacherJson<PaginatedResponse<TeacherResultSummary>>(
+    `/api/v1/teacher/results/summary/${query ? `?${query}` : ""}`,
+  );
 }
 
 export async function fetchAdminExamRuntimeSummary(options?: {
   status?: "active" | "all" | "live" | "scheduled";
 }) {
   return fetchExamRuntimeSummary(options);
+}
+
+export async function fetchAdminActivationSummary(days = 7) {
+  return requestTeacherJson<AdminActivationSummary>(
+    `/api/v1/reports/activation-summary/?days=${Math.min(Math.max(days, 1), 90)}`,
+  );
 }
 
 export async function fetchExamRuntimeSummary(options?: {
@@ -209,7 +239,7 @@ export async function fetchTeacherResultPublishReadiness(examId: string) {
     success?: boolean;
     message?: string;
     data: TeacherResultPublishReadiness;
-  }>(`/api/v1/results/exam/${examId}/publish-readiness/`);
+  }>(`/api/v1/results/exam/${examId}/publish-readiness/`, { cache: "no-store" });
   return response.data;
 }
 

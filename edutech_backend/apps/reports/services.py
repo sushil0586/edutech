@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.db import transaction
@@ -14,6 +15,16 @@ from apps.teachers.models import TeacherAssignment
 
 User = get_user_model()
 NOTIFICATION_LIST_METADATA_CACHE_TTL_SECONDS = 60
+ACTIVATION_ACTIONS = (
+    "public_registration", "onboarding_profile_complete",
+    "student_first_assigned_exam_seen", "attempt_start",
+    "attempt_save_failed", "attempt_submit", "support_request_created",
+)
+ACTIVATION_METADATA_KEYS = {
+    "category", "error_category", "exam_id", "status", "student_id",
+    "visible_exam_count",
+}
+CLIENT_PLATFORMS = {"web", "android", "ios", "api"}
 
 
 def notification_list_metadata_cache_key(*, user_id):
@@ -125,6 +136,77 @@ def create_audit_log(
         ip_address=_request_ip(request),
         user_agent=request.META.get("HTTP_USER_AGENT", "") if request else "",
     )
+
+
+def create_activation_audit_log(
+    *, action, entity_type, entity_id, user, institute=None, message="",
+    metadata=None, request=None,
+):
+    """Store a privacy-safe pilot activation event in the audit stream."""
+    if action not in ACTIVATION_ACTIONS:
+        raise ValueError(f"Unsupported activation action: {action}")
+    profile = getattr(user, "account_profile", None)
+    supplied = metadata or {}
+    safe_metadata = {
+        key: value for key, value in supplied.items() if key in ACTIVATION_METADATA_KEYS
+    }
+    requested_platform = (
+        request.META.get("HTTP_X_CLIENT_PLATFORM", "") if request is not None else ""
+    ).strip().lower()
+    safe_metadata.update({
+        "activation_event": True,
+        "role": getattr(profile, "role", "unknown") or "unknown",
+        "platform": requested_platform if requested_platform in CLIENT_PLATFORMS else "unknown",
+        "release_version": (
+            request.META.get("HTTP_X_CLIENT_VERSION", "") if request is not None else ""
+        ).strip() or getattr(settings, "APP_VERSION", "unknown"),
+        "release_build": getattr(settings, "APP_BUILD", "unknown"),
+    })
+    return create_audit_log(
+        action=action, entity_type=entity_type, entity_id=entity_id, user=user,
+        institute=institute, message=message, metadata=safe_metadata, request=request,
+    )
+
+
+def activation_summary(*, user, days=7):
+    profile = getattr(user, "account_profile", None)
+    if profile is None or profile.role not in {
+        AccountRole.PLATFORM_ADMIN, AccountRole.INSTITUTE_ADMIN,
+    }:
+        raise PermissionError("Activation reporting requires an admin account.")
+    days = min(max(int(days), 1), 90)
+    start_at = timezone.now() - timedelta(days=days)
+    events = AuditLog.objects.filter(
+        action__in=ACTIVATION_ACTIONS, created_at__gte=start_at,
+        metadata__activation_event=True,
+    )
+    if profile.role == AccountRole.INSTITUTE_ADMIN:
+        events = events.filter(institute_id=profile.institute_id)
+    counts = {action: 0 for action in ACTIVATION_ACTIONS}
+    dimensions = {"role": {}, "platform": {}, "release_version": {}}
+    for row in events.values("action", "metadata"):
+        counts[row["action"]] += 1
+        metadata = row["metadata"] or {}
+        for dimension in dimensions:
+            value = str(metadata.get(dimension) or "unknown")
+            dimensions[dimension][value] = dimensions[dimension].get(value, 0) + 1
+    starts = counts["attempt_start"]
+    signups = counts["public_registration"]
+    return {
+        "window_days": days, "starts_at": start_at, "counts": counts,
+        "rates": {
+            "profile_completion_from_signup": round(
+                counts["onboarding_profile_complete"] / signups * 100, 1
+            ) if signups else None,
+            "exam_submission_from_start": round(
+                counts["attempt_submit"] / starts * 100, 1
+            ) if starts else None,
+            "save_failures_per_start": round(
+                counts["attempt_save_failed"] / starts * 100, 1
+            ) if starts else None,
+        },
+        "dimensions": dimensions,
+    }
 
 
 def _create_notification_if_missing(
@@ -273,35 +355,70 @@ def ensure_exam_window_notifications(student, exams):
         return
     user = profile.user
     now = timezone.now()
+    candidates = []
     for exam in exams:
         if not exam.is_active:
             continue
         if exam.start_at and now < exam.start_at:
             delta = exam.start_at - now
             if delta <= timedelta(minutes=30):
-                _create_notification_if_missing(
-                    institute=exam.institute,
-                    recipient_user=user,
-                    notification_type=NotificationType.EXAM_STARTING_SOON,
-                    title=f"{exam.title} starts soon",
-                    message=f"Your {exam.title} starts in {max(int(delta.total_seconds() // 60), 0)} minutes.",
-                    related_object_type="exam",
-                    related_object_id=exam.id,
-                    metadata={"exam_id": str(exam.id), "route": "student_exam_detail"},
+                candidates.append(
+                    {
+                        "institute": exam.institute,
+                        "notification_type": NotificationType.EXAM_STARTING_SOON,
+                        "title": f"{exam.title} starts soon",
+                        "message": f"Your {exam.title} starts in {max(int(delta.total_seconds() // 60), 0)} minutes.",
+                        "related_object_type": "exam",
+                        "related_object_id": str(exam.id),
+                        "metadata": {"exam_id": str(exam.id), "route": "student_exam_detail"},
+                    }
                 )
         elif exam.status in {"scheduled", "live"} and (
             exam.end_at is None or now <= exam.end_at
         ):
-            _create_notification_if_missing(
-                institute=exam.institute,
-                recipient_user=user,
-                notification_type=NotificationType.EXAM_LIVE,
-                title=f"{exam.title} is live",
-                message=f"{exam.title} is currently available. Start when you are ready within the exam window.",
-                related_object_type="exam",
-                related_object_id=exam.id,
-                metadata={"exam_id": str(exam.id), "route": "student_exam_detail"},
+            candidates.append(
+                {
+                    "institute": exam.institute,
+                    "notification_type": NotificationType.EXAM_LIVE,
+                    "title": f"{exam.title} is live",
+                    "message": f"{exam.title} is currently available. Start when you are ready within the exam window.",
+                    "related_object_type": "exam",
+                    "related_object_id": str(exam.id),
+                    "metadata": {"exam_id": str(exam.id), "route": "student_exam_detail"},
+                }
             )
+    if not candidates:
+        return
+
+    existing_keys = set(
+        InAppNotification.objects.filter(
+            recipient_user=user,
+            related_object_type="exam",
+            related_object_id__in=[candidate["related_object_id"] for candidate in candidates],
+            notification_type__in=[
+                NotificationType.EXAM_STARTING_SOON,
+                NotificationType.EXAM_LIVE,
+            ],
+            is_active=True,
+        ).values_list("notification_type", "related_object_id")
+    )
+    notifications = [
+        InAppNotification(
+            institute=candidate["institute"],
+            recipient_user=user,
+            notification_type=candidate["notification_type"],
+            title=candidate["title"],
+            message=candidate["message"],
+            related_object_type=candidate["related_object_type"],
+            related_object_id=candidate["related_object_id"],
+            metadata=candidate["metadata"],
+        )
+        for candidate in candidates
+        if (candidate["notification_type"], candidate["related_object_id"]) not in existing_keys
+    ]
+    if notifications:
+        InAppNotification.objects.bulk_create(notifications)
+        invalidate_notification_list_metadata_cache(user=user)
 
 
 @transaction.atomic

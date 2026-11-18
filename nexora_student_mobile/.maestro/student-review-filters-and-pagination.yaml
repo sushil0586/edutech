@@ -1,5 +1,6 @@
 appId: ${MAESTRO_APP_ID}
 ---
+# Frozen case: EXPO-P1-005
 # Set these before running:
 # STUDENT_USERNAME
 # STUDENT_PASSWORD
@@ -12,7 +13,13 @@ appId: ${MAESTRO_APP_ID}
 - launchApp:
     clearState: true
 
-- tapOn: "Login"
+- extendedWaitUntil:
+    visible:
+      id: "role-gate-login-button"
+    timeout: 60000
+
+- tapOn:
+    id: "role-gate-login-button"
 - tapOn:
     id: "login-username-input"
 - inputText: ${STUDENT_USERNAME}
@@ -34,24 +41,31 @@ appId: ${MAESTRO_APP_ID}
 - tapOn:
     id: "login-submit-button"
 
-- assertVisible: "Student Dashboard"
+- extendedWaitUntil:
+    visible: "Student Dashboard"
+    timeout: 60000
 
 - tapOn:
     id: "student-tab-results"
 
-- assertVisible: "Student Results"
+- extendedWaitUntil:
+    visible: "Student Results"
+    timeout: 60000
 
 - scrollUntilVisible:
     element:
       id: "results-review-button"
     direction: DOWN
     timeout: 30000
-    visibilityPercentage: 50
+    visibilityPercentage: 70
+    centerElement: true
 
 - tapOn:
     id: "results-review-button"
 
-- assertVisible: "Attempt Review"
+- extendedWaitUntil:
+    visible: "Attempt Review"
+    timeout: 60000
 
 - scrollUntilVisible:
     element:
@@ -82,8 +96,15 @@ appId: ${MAESTRO_APP_ID}
 - tapOn:
     id: "attempt-review-next-page-button"
 
-- assertVisible:
-    id: "attempt-review-previous-page-button"
+- scrollUntilVisible:
+    element:
+      id: "attempt-review-previous-page-button"
+    direction: DOWN
+    speed: 80
+    timeout: 60000
+    visibilityPercentage: 70
+
+- takeScreenshot: expo-p1-005-review-page-two
 
 - tapOn:
     id: "attempt-review-previous-page-button"
@@ -99,9 +120,15 @@ appId: ${MAESTRO_APP_ID}
 - tapOn:
     id: "attempt-review-back-summary-button"
 
-- assertVisible: "Attempt Summary"
+- extendedWaitUntil:
+    visible: "Attempt Summary"
+    timeout: 60000
 
 - tapOn:
     id: "attempt-summary-open-results-button"
 
-- assertVisible: "Student Results"
+- extendedWaitUntil:
+    visible: "Student Results"
+    timeout: 60000
+
+- takeScreenshot: expo-p1-005-returned-to-results

@@ -95,7 +95,7 @@ test.describe("Institute results workspace", () => {
     "Institute Playwright credentials are not configured.",
   );
 
-  test("@workflow institute can filter and navigate the results workspace", async ({ page }) => {
+  test("@workflow [IR-P0-001] institute can filter and navigate the results workspace", async ({ page }, testInfo) => {
     await loginAsRole(page, "institute");
     await expectInstituteWorkspace(page);
 
@@ -242,5 +242,6 @@ test.describe("Institute results workspace", () => {
     await expect(page).toHaveURL(/\/institute\/results\/analysis(?:\?.*)?$/);
     await expect(page.getByText(/question risk board/i).first()).toBeVisible();
     await expect(page.getByText(/student explorer/i).first()).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath("IR-P0-001-results-overview.png"), fullPage: true });
   });
 });

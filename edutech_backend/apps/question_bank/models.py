@@ -44,6 +44,23 @@ class MasterQuestionVisibility(models.TextChoices):
     PUBLIC = "public", "Public"
 
 
+class ContentDefectCategory(models.TextChoices):
+    INCORRECT_ANSWER = "incorrect_answer", "Incorrect Answer"
+    AMBIGUOUS_WORDING = "ambiguous_wording", "Ambiguous Wording"
+    EXPLANATION_ISSUE = "explanation_issue", "Explanation Issue"
+    CURRICULUM_MAPPING = "curriculum_mapping", "Curriculum Mapping"
+    DUPLICATE_CONTENT = "duplicate_content", "Duplicate Content"
+    ACCESSIBILITY = "accessibility", "Accessibility"
+    OTHER = "other", "Other"
+
+
+class ContentDefectStatus(models.TextChoices):
+    OPEN = "open", "Open"
+    IN_REVIEW = "in_review", "In Review"
+    RESOLVED = "resolved", "Resolved"
+    REJECTED = "rejected", "Rejected"
+
+
 class MasterQuestionSourceType(models.TextChoices):
     PLATFORM = "platform", "Platform"
     INSTITUTE = "institute", "Institute"
@@ -517,6 +534,82 @@ class QuestionAttachment(BaseModel):
 
     def __str__(self):
         return self.title or f"{self.get_attachment_type_display()} attachment"
+
+
+class QuestionContentDefect(BaseModel):
+    institute = models.ForeignKey(
+        Institute,
+        on_delete=models.CASCADE,
+        related_name="question_content_defects",
+    )
+    question = models.ForeignKey(
+        Question,
+        on_delete=models.CASCADE,
+        related_name="content_defects",
+    )
+    reported_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="question_content_defects_reported",
+        blank=True,
+        null=True,
+    )
+    assigned_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="question_content_defects_assigned",
+        blank=True,
+        null=True,
+    )
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="question_content_defects_resolved",
+        blank=True,
+        null=True,
+    )
+    replacement_question = models.ForeignKey(
+        Question,
+        on_delete=models.SET_NULL,
+        related_name="resolved_content_defects",
+        blank=True,
+        null=True,
+    )
+    category = models.CharField(max_length=40, choices=ContentDefectCategory.choices)
+    status = models.CharField(
+        max_length=20,
+        choices=ContentDefectStatus.choices,
+        default=ContentDefectStatus.OPEN,
+    )
+    description = models.TextField()
+    resolution_notes = models.TextField(blank=True)
+    question_snapshot = models.JSONField(default=dict, blank=True)
+    resolved_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["institute", "status", "created_at"]),
+            models.Index(fields=["question", "status"]),
+            models.Index(fields=["assigned_to", "status"]),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.question_id and self.institute_id and self.question.institute_id != self.institute_id:
+            raise ValidationError({"question": "Question must belong to the same institute."})
+        if (
+            self.replacement_question_id
+            and self.institute_id
+            and self.replacement_question.institute_id != self.institute_id
+        ):
+            raise ValidationError(
+                {"replacement_question": "Replacement question must belong to the same institute."}
+            )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
 
 
 class InstituteQuestionAccess(BaseModel):

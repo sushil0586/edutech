@@ -55,6 +55,7 @@ test.describe("Admin GRE results contract", () => {
       !liveExam || !publishedExam,
       "GRE seeded demo exams are not available in this environment, so this contract cannot assert admin parity here.",
     );
+    if (!liveExam || !publishedExam) return;
 
     await page.goto(`/admin/exams/${liveExam.id}`);
     await expect(page.getByRole("heading", { name: new RegExp(liveExam.title, "i") }).first()).toBeVisible();

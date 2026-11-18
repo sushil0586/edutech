@@ -1,5 +1,6 @@
 from django.core.cache import cache
 from django.test import TestCase
+from django.test.utils import override_settings
 from rest_framework.test import APIClient
 
 from apps.exams.services import sync_total_marks_from_questions
@@ -28,13 +29,23 @@ class AuditAndHealthTestCase(TestCase):
         self.exam.passing_marks = self.exam.total_marks
         self.exam.save(update_fields=["passing_marks", "updated_at"])
 
-    def test_health_endpoint_returns_database_status(self):
+    @override_settings(
+        APP_VERSION="2.4.1",
+        APP_BUILD="a" * 40,
+        APP_BUILD_TIMESTAMP="2026-10-15T09:30:00Z",
+        APP_ENVIRONMENT="staging",
+        APP_ARTIFACT_SHA256="b" * 64,
+    )
+    def test_health_endpoint_returns_database_and_release_identity(self):
         response = self.client.get("/api/v1/health/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["status"], "ok")
         self.assertEqual(response.data["database"], "ok")
-        self.assertIn("version", response.data)
-        self.assertIn("build", response.data)
+        self.assertEqual(response.data["version"], "2.4.1")
+        self.assertEqual(response.data["build"], "a" * 40)
+        self.assertEqual(response.data["build_timestamp"], "2026-10-15T09:30:00Z")
+        self.assertEqual(response.data["environment"], "staging")
+        self.assertEqual(response.data["artifact_sha256"], "b" * 64)
 
     def test_login_creates_audit_log(self):
         cache.clear()

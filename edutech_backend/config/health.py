@@ -26,6 +26,9 @@ class HealthCheckView(APIView):
                 "database": "ok" if database_ok else "unavailable",
                 "version": getattr(settings, "APP_VERSION", "1.0.0"),
                 "build": getattr(settings, "APP_BUILD", "local"),
+                "build_timestamp": getattr(settings, "APP_BUILD_TIMESTAMP", "unknown"),
+                "environment": getattr(settings, "APP_ENVIRONMENT", "local"),
+                "artifact_sha256": getattr(settings, "APP_ARTIFACT_SHA256", "unknown"),
             },
             status=status_code,
         )

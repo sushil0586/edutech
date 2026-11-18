@@ -2,12 +2,17 @@ import csv
 import io
 import re
 import secrets
+import hashlib
 from datetime import date
+from datetime import timedelta
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.conf import settings
+from django.core.mail import send_mail
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.academics.models import AcademicYear, Cohort, Program, normalize_academic_code
@@ -17,6 +22,8 @@ from apps.accounts.models import (
     AccountProfile,
     AccountRole,
     OnboardingStatus,
+    PasswordResetDeliveryStatus,
+    PasswordResetRequest,
 )
 from apps.geography.services import build_location_catalog, has_active_geography_data
 from apps.institutes.models import Institute
@@ -26,6 +33,81 @@ from apps.teachers.models import TeacherProfile
 
 
 User = get_user_model()
+
+
+PASSWORD_RESET_NEUTRAL_MESSAGE = (
+    "If an active account matches those details, password reset instructions have been sent."
+)
+
+
+def _password_reset_digest(raw_token):
+    return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+
+
+@transaction.atomic
+def request_password_reset(*, identifier, requested_ip=None):
+    user = (
+        User.objects.filter(Q(username__iexact=identifier) | Q(email__iexact=identifier))
+        .filter(is_active=True, account_profile__is_active=True)
+        .exclude(email="")
+        .order_by("id")
+        .first()
+    )
+    if user is None:
+        return None
+
+    PasswordResetRequest.objects.filter(user=user, is_active=True, used_at__isnull=True).update(
+        is_active=False
+    )
+    raw_token = secrets.token_urlsafe(32)
+    reset_request = PasswordResetRequest.objects.create(
+        user=user,
+        token_digest=_password_reset_digest(raw_token),
+        expires_at=timezone.now() + timedelta(minutes=settings.PASSWORD_RESET_TIMEOUT_MINUTES),
+        requested_ip=requested_ip or None,
+    )
+    reset_url = f"{settings.PASSWORD_RESET_WEB_URL}?request={reset_request.id}&token={raw_token}"
+    try:
+        send_mail(
+            "Reset your Nexora password",
+            f"Use this link within {settings.PASSWORD_RESET_TIMEOUT_MINUTES} minutes to reset your password:\n\n{reset_url}\n\nIf you did not request this, you can ignore this message.",
+            settings.DEFAULT_FROM_EMAIL,
+            [user.email],
+            fail_silently=False,
+        )
+    except Exception:
+        reset_request.delivery_status = PasswordResetDeliveryStatus.FAILED
+        reset_request.save(update_fields=["delivery_status", "updated_at"])
+        return reset_request
+    reset_request.delivery_status = PasswordResetDeliveryStatus.SENT
+    reset_request.save(update_fields=["delivery_status", "updated_at"])
+    return reset_request
+
+
+@transaction.atomic
+def confirm_password_reset(*, request_id, raw_token, new_password):
+    reset_request = PasswordResetRequest.objects.select_for_update().filter(pk=request_id).first()
+    now = timezone.now()
+    valid = bool(
+        reset_request
+        and reset_request.is_active
+        and reset_request.used_at is None
+        and reset_request.expires_at > now
+        and secrets.compare_digest(reset_request.token_digest, _password_reset_digest(raw_token))
+    )
+    if not valid:
+        raise ValidationError({"token": "This password reset link is invalid or has expired."})
+    user = reset_request.user
+    validate_password(new_password, user=user)
+    user.set_password(new_password)
+    user.save(update_fields=["password"])
+    reset_request.used_at = now
+    reset_request.is_active = False
+    reset_request.save(update_fields=["used_at", "is_active", "updated_at"])
+    PasswordResetRequest.objects.filter(user=user, is_active=True).exclude(pk=reset_request.pk).update(
+        is_active=False
+    )
+    return user
 
 STUDENT_IMPORT_TEMPLATE_COLUMNS = [
     "admission_no",
@@ -1005,7 +1087,10 @@ def get_scoped_teacher_for_admin(*, teacher_id, requesting_profile):
 def get_scoped_user_for_admin(*, user_id, requesting_profile):
     queryset = User.objects.select_related("account_profile", "account_profile__institute")
     if requesting_profile.role != AccountRole.PLATFORM_ADMIN:
-        queryset = queryset.filter(account_profile__institute_id=requesting_profile.institute_id)
+        queryset = queryset.filter(
+            account_profile__institute_id=requesting_profile.institute_id,
+            is_staff=False, is_superuser=False,
+        ).exclude(account_profile__role=AccountRole.PLATFORM_ADMIN)
     return queryset.filter(pk=user_id).first()
 
 

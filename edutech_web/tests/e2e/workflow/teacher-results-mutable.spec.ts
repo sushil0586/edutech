@@ -225,8 +225,8 @@ test.describe("Teacher mutable results actions", () => {
     let studentAcademicYearName: string | null = null;
     let studentProgramName: string | null = null;
     let studentProfileId = "";
-    let questionId: string | null = null;
-    let examId: string | null = null;
+    let questionId = "";
+    let examId = "";
     const uniqueSeed = Date.now();
     const questionText = `PW leaderboard question ${uniqueSeed}`;
     const examTitle = `PW Results Flow ${uniqueSeed}`;
@@ -283,8 +283,8 @@ test.describe("Teacher mutable results actions", () => {
 
       const questionDetailUrl = page.url().split("?")[0] ?? page.url();
       const questionIdMatch = questionDetailUrl.match(/\/teacher\/question-bank\/([^/?#]+)/);
-      questionId = questionIdMatch?.[1] ?? null;
-      expect(questionId).not.toBeNull();
+      questionId = questionIdMatch?.[1] ?? "";
+      expect(questionId).not.toBe("");
 
       await page.goto("/teacher/exams/new");
       await expect(page.getByRole("heading", { name: /create exam/i }).first()).toBeVisible();
@@ -306,8 +306,8 @@ test.describe("Teacher mutable results actions", () => {
 
       const examDetailUrl = page.url().split("?")[0] ?? page.url();
       const examIdMatch = examDetailUrl.match(/\/teacher\/exams\/([^/?#]+)/);
-      examId = examIdMatch?.[1] ?? null;
-      expect(examId).not.toBeNull();
+      examId = examIdMatch?.[1] ?? "";
+      expect(examId).not.toBe("");
 
       await page.goto(`/teacher/exams/${examId}`);
       await expect(page.getByRole("heading", { name: new RegExp(escapeRegExp(examTitle), "i") }).first()).toBeVisible();

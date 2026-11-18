@@ -11,8 +11,8 @@ import {
 } from "@/lib/api/student";
 import { fetchTeacherQuestionPage } from "@/lib/api/teacher-builder";
 import {
-  fetchTeacherExams,
-  fetchTeacherResultSummary,
+  fetchTeacherExamPage,
+  fetchTeacherResultSummaryPage,
 } from "@/lib/api/teacher";
 import type { WorkspaceSearchEntry, WorkspaceRole } from "@/lib/workspace/search-index";
 
@@ -162,8 +162,8 @@ async function loadStudentLiveEntries(query: string): Promise<WorkspaceSearchEnt
 
 async function loadTeacherLiveEntries(baseHref: "/teacher" | "/institute", query: string): Promise<WorkspaceSearchEntry[]> {
   const [examsResult, resultsResult, questionsResult] = await Promise.allSettled([
-    fetchTeacherExams(),
-    fetchTeacherResultSummary(),
+    fetchTeacherExamPage({ search: query, pageSize: 8 }),
+    fetchTeacherResultSummaryPage({ search: query, pageSize: 8 }),
     fetchTeacherQuestionPage({ search: query, page_size: 8 }),
   ]);
 
@@ -171,10 +171,7 @@ async function loadTeacherLiveEntries(baseHref: "/teacher" | "/institute", query
 
   if (examsResult.status === "fulfilled") {
     entries.push(
-      ...examsResult.value
-        .filter((exam) =>
-          matchesQuery(query, [exam.title, exam.code, ...examSubjectKeywords(exam), exam.cohort_name]),
-        )
+      ...examsResult.value.results
         .slice(0, 6)
         .map((exam) => ({
           href: `${baseHref}/exams/${exam.id}`,
@@ -188,10 +185,7 @@ async function loadTeacherLiveEntries(baseHref: "/teacher" | "/institute", query
 
   if (resultsResult.status === "fulfilled") {
     entries.push(
-      ...resultsResult.value
-        .filter((result) =>
-          matchesQuery(query, [result.exam_title, result.exam_code]),
-        )
+      ...resultsResult.value.results
         .slice(0, 6)
         .map((result) => ({
           href: `${baseHref}/results?exam=${encodeURIComponent(result.exam)}`,

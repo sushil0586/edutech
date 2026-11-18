@@ -145,6 +145,7 @@ test.describe("Institute mutable teacher-assignment actions", () => {
       const createPayload = (await createResponse.json()) as CreatePayload;
       assignmentId = createPayload.id ?? null;
       expect(assignmentId).not.toBeNull();
+      if (!teacherOption) throw new Error("A teacher option is required to create an assignment.");
 
       const selectedTeacherLabel = teacherRowLabelFromOption(teacherOption.label);
       const createdRow = page.locator("table tbody tr").filter({

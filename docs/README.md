@@ -28,7 +28,15 @@ This repository now keeps root-level product and planning documents organized un
 - `docs/user-manual`
   End-user manuals and guided workflow instructions.
 
-## Notes
+## Current Go To Market Plan
+
+- [High level release plan](implementation-plans/go-to-market-2026-10/00-HIGH-LEVEL-PLAN.md)
+- [Detailed task and release tracker](implementation-plans/go-to-market-2026-10/11-EXECUTION-TRACKER.md)
+- [W01 release foundation execution](qa/62-w01-release-foundation-20261021.md)
+
+The release plan covers all web roles and student-only Android and iOS apps. Each high level workstream links to its detailed execution plan.
+
+## Repository Notes
 
 - App-specific documentation inside `edutech_backend/`, `edutech_web/`, `edutech_frontend/`, and `nexora_student_mobile/` remains in place.
 - Legacy duplicate docs from the nested `edutech/` mirror were removed so there is now one canonical documentation set.

@@ -20,8 +20,14 @@ async function clickOrGotoHref(page: Page, href: string | null, urlPattern: RegE
     return;
   }
 
-  const resolvedUrl = new URL(href!, page.url());
-  await page.goto(`${resolvedUrl.pathname}${resolvedUrl.search}`, { waitUntil: "commit" });
+  const navigationCompleted = await page
+    .waitForURL(urlPattern, { waitUntil: "commit", timeout: 5_000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!navigationCompleted) {
+    const resolvedUrl = new URL(href!, page.url());
+    await page.goto(`${resolvedUrl.pathname}${resolvedUrl.search}`, { waitUntil: "commit" });
+  }
   await page.waitForLoadState("load").catch(() => null);
 }
 

@@ -22,7 +22,7 @@ from apps.economy.models import SubscriptionPlan
 from apps.economy.models import SubscriptionPlanCycle
 from apps.economy.models import SubscriptionPlanExamAllowanceConfig
 from apps.economy.services import grant_admin_stars
-from apps.exams.models import ExamAccessMode, ExamSection, ExamSourceType
+from apps.exams.models import ExamAccessMode, ExamSection, ExamSourceType, ExamStudentAssignment
 from apps.institutes.models import InstituteManagementMode
 from apps.exams.services import publish_exam, sync_total_marks_from_questions
 from apps.results.services import calculate_exam_performance_summary, generate_result_from_attempt
@@ -285,6 +285,30 @@ class AuthenticationAccessControlTestCase(TestCase):
         blocked_response = self.client.get(f"/api/v1/results/student/{self.other_student.id}/performance/")
         self.assertEqual(blocked_response.status_code, 403)
 
+    def test_compact_student_attempts_are_scoped_and_exclude_detail_payloads(self):
+        self._authenticate_with_token("student-auth", "Student@123")
+
+        response = self.client.get("/api/v1/student/attempts/?compact=true")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(str(response.data[0]["id"]), str(self.primary_attempt.id))
+        self.assertEqual(
+            set(response.data[0]),
+            {
+                "id",
+                "exam",
+                "exam_title",
+                "status",
+                "expires_at",
+                "submitted_at",
+                "total_questions",
+                "attempted_questions",
+            },
+        )
+        self.assertNotIn("answers", response.data[0])
+        self.assertNotIn("integrity_summary", response.data[0])
+
     def test_teacher_can_access_only_institute_exam_and_question_data(self):
         self._authenticate_with_token("teacher-auth", "Teacher@123")
 
@@ -344,6 +368,23 @@ class AuthenticationAccessControlTestCase(TestCase):
         self.assertIn("section_performance", summary_response.data[0])
         self.assertIn("experience_profile", summary_response.data[0])
         self.assertIn("review_release_risk", summary_response.data[0])
+
+        summary_page_response = self.client.get(
+            f"/api/v1/teacher/results/summary/?page_size=1&search={self.exam.code}"
+        )
+        self.assertEqual(summary_page_response.status_code, 200)
+        self.assertEqual(summary_page_response.data["count"], 1)
+        self.assertEqual(
+            str(summary_page_response.data["results"][0]["exam"]),
+            str(self.exam.id),
+        )
+
+        empty_summary_page_response = self.client.get(
+            "/api/v1/teacher/results/summary/?page_size=1&search=no-matching-exam"
+        )
+        self.assertEqual(empty_summary_page_response.status_code, 200)
+        self.assertEqual(empty_summary_page_response.data["count"], 0)
+        self.assertEqual(empty_summary_page_response.data["results"], [])
 
     def test_teacher_result_summary_includes_review_queue_blockers(self):
         answer = self.primary_attempt.answers.select_related("question").get()
@@ -727,6 +768,80 @@ class AuthenticationAccessControlTestCase(TestCase):
         assigned_available_response = self.client.get("/api/v1/student/exams/available/")
         self.assertEqual(assigned_available_response.status_code, 200)
         self.assertEqual([str(item["id"]) for item in assigned_available_response.data], [str(self.exam.id)])
+
+    def test_inactive_selected_student_assignment_blocks_visibility_detail_and_start(self):
+        assigned_student = self.builder.create_student(
+            self.context["institute"],
+            self.context["academic_year"],
+            self.context["program"],
+            self.context["cohort"],
+            admission_no="STU006",
+            email="inactive-assignment@example.com",
+            first_name="Inactive",
+            last_name="Assignment",
+        )
+        self.builder.create_student_account(
+            institute=self.context["institute"],
+            student_profile=assigned_student,
+            username="inactive-assignment-student",
+            password="Student@123",
+            email="inactive-assignment-student@example.com",
+        )
+
+        ExamStudentAssignment.objects.create(
+            exam=self.exam,
+            student=assigned_student,
+            assigned_by=self.context["teacher"],
+            is_active=False,
+        )
+        self.exam.assignment_mode = "selected_students"
+        self.exam.save(update_fields=["assignment_mode", "updated_at"])
+
+        self._authenticate_with_token("inactive-assignment-student", "Student@123")
+
+        available_response = self.client.get("/api/v1/student/exams/available/")
+        self.assertEqual(available_response.status_code, 200)
+        self.assertEqual(available_response.data, [])
+
+        detail_response = self.client.get(f"/api/v1/student/exams/{self.exam.id}/detail/")
+        self.assertEqual(detail_response.status_code, 404)
+
+        start_response = self.client.post(
+            "/api/v1/attempts/start/",
+            {"exam": str(self.exam.id), "student": str(assigned_student.id)},
+            format="json",
+        )
+        self.assertEqual(start_response.status_code, 400)
+        self.assertIn("exam", start_response.data)
+
+    def test_draft_exam_is_hidden_and_cannot_start(self):
+        self._authenticate_with_token("student-auth", "Student@123")
+
+        draft_exam = self.builder.create_exam(
+            self.context["institute"],
+            self.context["academic_year"],
+            self.context["program"],
+            self.context["cohort"],
+            self.context["subject"],
+            title="Draft Hidden Exam",
+            code="DRAFT-HIDDEN-01",
+        )
+        self.builder.add_question_to_exam(draft_exam, self.context["question"])
+
+        available_response = self.client.get("/api/v1/student/exams/available/")
+        self.assertEqual(available_response.status_code, 200)
+        self.assertNotIn(str(draft_exam.id), [str(item["id"]) for item in available_response.data])
+
+        detail_response = self.client.get(f"/api/v1/student/exams/{draft_exam.id}/detail/")
+        self.assertEqual(detail_response.status_code, 404)
+
+        start_response = self.client.post(
+            "/api/v1/attempts/start/",
+            {"exam": str(draft_exam.id), "student": str(self.context["student"].id)},
+            format="json",
+        )
+        self.assertEqual(start_response.status_code, 400)
+        self.assertIn("exam", start_response.data)
 
     def test_selected_student_assignment_overrides_program_scope_for_visibility_and_detail(self):
         alternate_cohort = self.builder.create_cohort(

@@ -69,6 +69,7 @@ test.describe("Admin multi-subject published practice contract", () => {
       !exam,
       "Mixed-subject seeded practice exam is not available in this environment, so this contract cannot assert admin parity here.",
     );
+    if (!exam) return;
 
     await page.goto(`/admin/exams/${exam.id}`);
     await expect(page.getByRole("heading", { name: new RegExp(exam.title, "i") }).first()).toBeVisible();

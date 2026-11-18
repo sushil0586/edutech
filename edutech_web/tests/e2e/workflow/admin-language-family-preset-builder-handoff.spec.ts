@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectAdminWorkspace } from "../helpers/navigation";
 import { fetchPresetPacks, type ExamPresetPackPayload } from "../helpers/preset-packs";
@@ -8,7 +8,7 @@ const languageProgramLabel = "Demo IELTS Track";
 const languageSubjectLabel = "IELTS Academic Skills";
 
 async function alignAdminScopeWithLanguageFamily(
-  page: Parameters<typeof test>[0]["page"],
+  page: Page,
   pack: ExamPresetPackPayload,
 ) {
   await page.getByLabel(/select template institute/i).selectOption("Demo Learning Institute (DLI001)");

@@ -1,7 +1,7 @@
 from datetime import timedelta
 from decimal import Decimal
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -42,6 +42,7 @@ from apps.economy.services import (
 from common.tests.builders import AcademicAssessmentBuilder
 
 
+@override_settings(STUDENT_SELF_SERVICE_PURCHASES_ENABLED=True)
 class EconomyApiTestCase(TestCase):
     def setUp(self):
         self.builder = AcademicAssessmentBuilder()
@@ -92,6 +93,12 @@ class EconomyApiTestCase(TestCase):
         self.assertEqual(len(ledger_response.data), 1)
         self.assertEqual(ledger_response.data[0]["stars_delta"], 100)
 
+        paginated_ledger_response = self.client.get("/api/v1/economy/ledger/?page=1&page_size=5")
+        self.assertEqual(paginated_ledger_response.status_code, 200)
+        self.assertEqual(paginated_ledger_response.data["count"], 1)
+        self.assertEqual(len(paginated_ledger_response.data["results"]), 1)
+        self.assertEqual(paginated_ledger_response.data["results"][0]["stars_delta"], 100)
+
     def test_student_and_admin_can_view_reward_history(self):
         RewardRule.objects.create(
             institute=self.context["institute"],
@@ -131,6 +138,8 @@ class EconomyApiTestCase(TestCase):
         get_response = self.client.get("/api/v1/economy/admin/policy-config/")
         self.assertEqual(get_response.status_code, 200)
         self.assertEqual(get_response.data["singleton_key"], "default")
+        self.assertEqual(get_response.data["platform_catalog_governance_scope"], "platform_only")
+        self.assertEqual(get_response.data["platform_support_scope"], "cross_institute")
 
         patch_response = self.client.patch(
             "/api/v1/economy/admin/policy-config/",
@@ -139,6 +148,8 @@ class EconomyApiTestCase(TestCase):
                 "institute_admin_max_grant_stars": 40,
                 "institute_admin_can_confirm_orders": True,
                 "institute_admin_max_confirm_order_amount": "750.00",
+                "platform_support_scope": "cross_institute",
+                "institute_support_scope": "institute_only",
             },
             format="json",
         )
@@ -148,6 +159,10 @@ class EconomyApiTestCase(TestCase):
         self.assertEqual(
             patch_response.data["data"]["institute_admin_max_confirm_order_amount"],
             "750.00",
+        )
+        self.assertEqual(
+            patch_response.data["data"]["institute_catalog_governance_scope"],
+            "platform_only",
         )
 
         config_object = EconomyOperatorPolicyConfig.objects.get(singleton_key="default")
@@ -161,6 +176,25 @@ class EconomyApiTestCase(TestCase):
                 entity_id=str(config_object.id),
             ).exists()
         )
+
+    def test_platform_admin_policy_config_rejects_non_positive_limits(self):
+        self.client.force_authenticate(user=self.platform_admin_user)
+
+        amount_response = self.client.patch(
+            "/api/v1/economy/admin/policy-config/",
+            {"institute_admin_max_confirm_order_amount": "0.00"},
+            format="json",
+        )
+        self.assertEqual(amount_response.status_code, 400)
+        self.assertIn("institute_admin_max_confirm_order_amount", amount_response.data)
+
+        stars_response = self.client.patch(
+            "/api/v1/economy/admin/policy-config/",
+            {"institute_admin_max_grant_stars": 0},
+            format="json",
+        )
+        self.assertEqual(stars_response.status_code, 400)
+        self.assertIn("institute_admin_max_grant_stars", stars_response.data)
 
     def test_platform_admin_can_view_economy_policy_audit_history(self):
         self.client.force_authenticate(user=self.platform_admin_user)
@@ -184,6 +218,26 @@ class EconomyApiTestCase(TestCase):
             response.data[0]["metadata"]["changed_fields"]["institute_admin_can_grant_stars"]["after"],
             False,
         )
+
+    def test_platform_admin_can_update_policy_scopes(self):
+        self.client.force_authenticate(user=self.platform_admin_user)
+
+        response = self.client.patch(
+            "/api/v1/economy/admin/policy-config/",
+            {
+                "platform_support_scope": "institute_only",
+                "institute_support_scope": "cross_institute",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["data"]["platform_support_scope"], "institute_only")
+        self.assertEqual(response.data["data"]["institute_support_scope"], "cross_institute")
+
+        config_object = EconomyOperatorPolicyConfig.objects.get(singleton_key="default")
+        self.assertEqual(config_object.platform_support_scope, "institute_only")
+        self.assertEqual(config_object.institute_support_scope, "cross_institute")
 
     def test_platform_admin_can_view_economy_catalog_overview(self):
         RewardRule.objects.create(
@@ -2162,6 +2216,26 @@ class EconomyApiTestCase(TestCase):
         self.assertEqual(wallet_response.status_code, 200)
         self.assertEqual(wallet_response.data["available_stars"], 80)
 
+    @override_settings(STUDENT_SELF_SERVICE_PURCHASES_ENABLED=False)
+    def test_assisted_pilot_blocks_student_purchase_order_creation(self):
+        star_pack = StarPack.objects.create(
+            institute=self.context["institute"],
+            name="Pilot Hidden Pack",
+            code="PILOT-HIDDEN",
+            stars_credited=100,
+            price_amount="100.00",
+            currency="INR",
+            sort_order=1,
+        )
+        self.client.force_authenticate(user=self.student_user)
+        response = self.client.post(
+            "/api/v1/economy/orders/star-pack/",
+            {"star_pack": str(star_pack.id), "provider_name": "manual"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(PaymentOrder.objects.filter(student=self.student).exists())
+
     def test_student_can_create_star_pack_order_and_admin_can_confirm_it(self):
         star_pack = StarPack.objects.create(
             institute=self.context["institute"],
@@ -2190,6 +2264,13 @@ class EconomyApiTestCase(TestCase):
         self.assertEqual(list_response.status_code, 200)
         self.assertEqual(len(list_response.data), 1)
         self.assertEqual(list_response.data[0]["order_type"], "star_pack")
+
+        paginated_list_response = self.client.get("/api/v1/economy/orders/?page=1&page_size=5")
+        self.assertEqual(paginated_list_response.status_code, 200)
+        self.assertEqual(paginated_list_response.data["count"], 1)
+        self.assertEqual(paginated_list_response.data["pending_count"], 1)
+        self.assertEqual(len(paginated_list_response.data["results"]), 1)
+        self.assertEqual(paginated_list_response.data["results"][0]["order_type"], "star_pack")
 
         self.client.force_authenticate(user=self.admin_user)
         confirm_response = self.client.post(

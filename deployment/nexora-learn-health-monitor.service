@@ -1,0 +1,15 @@
+[Unit]
+Description=Nexora Learn health probe and incident notification
+After=network-online.target nexora-learn-backend.service nexora-learn-web.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/nexora-learn/health-monitor.env
+ExecStart=/usr/local/sbin/monitor-nexora-health.sh
+User=nobody
+Group=nogroup
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true

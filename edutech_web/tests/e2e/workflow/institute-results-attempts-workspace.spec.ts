@@ -24,9 +24,9 @@ test.describe("Institute results attempts workspace", () => {
     "Institute Playwright credentials are not configured.",
   );
 
-  test("@workflow institute can filter and inspect the results attempts workspace", async ({
+  test("@workflow [IR-P0-005] institute can filter and inspect the results attempts workspace", async ({
     page,
-  }) => {
+  }, testInfo) => {
     await loginAsRole(page, "institute");
     await expectInstituteWorkspace(page);
 
@@ -72,5 +72,6 @@ test.describe("Institute results attempts workspace", () => {
           .first(),
       ).toBeVisible();
     }
+    await page.screenshot({ path: testInfo.outputPath("IR-P0-005-results-attempts.png"), fullPage: true });
   });
 });

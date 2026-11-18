@@ -71,6 +71,7 @@ test.describe("Institute multi-subject results contract", () => {
       !exam,
       "Mixed-subject seeded practice exam is not available in this environment, so this contract cannot assert institute parity here.",
     );
+    if (!exam) return;
 
     await page.goto(`/institute/results?exam=${encodeURIComponent(exam.id)}`);
     await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();

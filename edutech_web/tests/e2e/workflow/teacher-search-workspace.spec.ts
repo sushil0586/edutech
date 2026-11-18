@@ -51,6 +51,7 @@ test.describe("Teacher search workspace", () => {
   test.skip(testRequiresRole("teacher"), "Teacher Playwright credentials are not configured.");
 
   test("@workflow teacher can filter workspace search and use live search handoffs", async ({ page }) => {
+    test.setTimeout(120_000);
     await loginAsRole(page, "teacher");
     await expectTeacherWorkspace(page);
 

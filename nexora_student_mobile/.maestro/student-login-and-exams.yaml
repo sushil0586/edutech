@@ -27,7 +27,7 @@ appId: ${MAESTRO_APP_ID}
 - extendedWaitUntil:
     visible:
       id: "role-gate-login-button"
-    timeout: 30000
+    timeout: 60000
 
 - tapOn:
     id: "role-gate-login-button"
@@ -65,7 +65,9 @@ appId: ${MAESTRO_APP_ID}
 
 - extendedWaitUntil:
     visible: "Student Dashboard"
-    timeout: 30000
+    timeout: 60000
+
+- takeScreenshot: student-dashboard
 
 - tapOn:
     id: "dashboard-open-exams-button"
@@ -79,9 +81,13 @@ appId: ${MAESTRO_APP_ID}
     timeout: 30000
     visibilityPercentage: 70
 
+- takeScreenshot: student-exams
+
 - tapOn:
     id: "exams-open-top-exam-button"
 
 - extendedWaitUntil:
     visible: "Exam Readiness|Current question"
     timeout: 30000
+
+- takeScreenshot: student-exam-detail

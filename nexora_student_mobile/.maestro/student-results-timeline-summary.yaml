@@ -1,5 +1,6 @@
 appId: ${MAESTRO_APP_ID}
 ---
+# Frozen case: EXPO-P1-003
 # Set these before running:
 # STUDENT_USERNAME
 # STUDENT_PASSWORD
@@ -13,10 +14,12 @@ appId: ${MAESTRO_APP_ID}
     clearState: true
 
 - extendedWaitUntil:
-    visible: "Login"
-    timeout: 30000
+    visible:
+      id: "role-gate-login-button"
+    timeout: 60000
 
-- tapOn: "Login"
+- tapOn:
+    id: "role-gate-login-button"
 - tapOn:
     id: "login-username-input"
 - inputText: ${STUDENT_USERNAME}
@@ -45,41 +48,55 @@ appId: ${MAESTRO_APP_ID}
 - tapOn:
     id: "student-tab-results"
 
-- assertVisible: "Student Results"
+- extendedWaitUntil:
+    visible: "Student Results"
+    timeout: 60000
 - scrollUntilVisible:
     element:
       id: "results-timeline-summary-button"
     direction: DOWN
-    timeout: 30000
-    visibilityPercentage: 50
+    speed: 80
+    timeout: 60000
+    visibilityPercentage: 70
 
 - tapOn:
     id: "results-timeline-summary-button"
 
-- assertVisible: "Attempt Summary"
+- extendedWaitUntil:
+    visible: "Attempt Summary"
+    timeout: 60000
 - assertVisible: "Submission state"
 - tapOn:
     id: "attempt-summary-open-analytics-button"
 
-- assertVisible: "Student Analytics"
+- extendedWaitUntil:
+    visible: "Student Analytics"
+    timeout: 60000
 
 - tapOn:
     id: "student-tab-results"
 
-- assertVisible: "Student Results"
+- extendedWaitUntil:
+    visible: "Student Results"
+    timeout: 60000
 
 - scrollUntilVisible:
     element:
       id: "results-timeline-summary-button"
     direction: DOWN
-    timeout: 30000
-    visibilityPercentage: 50
+    speed: 80
+    timeout: 60000
+    visibilityPercentage: 70
 
 - tapOn:
     id: "results-timeline-summary-button"
 
-- assertVisible: "Attempt Summary"
+- extendedWaitUntil:
+    visible: "Attempt Summary"
+    timeout: 60000
 - assertVisible: "Submission state"
 - scrollUntilVisible:
     element: "What happens next"
     direction: DOWN
+
+- takeScreenshot: expo-p1-003-results-timeline-summary

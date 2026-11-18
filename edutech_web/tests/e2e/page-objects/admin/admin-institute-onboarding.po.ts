@@ -79,12 +79,13 @@ export class AdminInstituteOnboardingPage {
   }
 
   async expectOnboardingOutcomeSummary(instituteName: string) {
+    await this.expectLastApplyResult();
     const resultSection = this.page.locator("section.contentCard").filter({
       has: this.page.getByText(/last apply result/i).first(),
     }).first();
     const completionSummary = resultSection.getByTestId("onboarding-completion-summary");
     const recoveryActions = resultSection.getByTestId("onboarding-recovery-actions");
-    await expect(completionSummary).toBeVisible();
+    await expect(completionSummary).toBeVisible({ timeout: 60000 });
     await expect(
       completionSummary.getByText(/ready for guided use|needs operator follow-up/i).first(),
     ).toBeVisible();

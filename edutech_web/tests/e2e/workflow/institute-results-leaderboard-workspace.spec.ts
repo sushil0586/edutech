@@ -74,7 +74,7 @@ test.describe("Institute results leaderboard workspace", () => {
     "Institute Playwright credentials are not configured.",
   );
 
-  test("@workflow institute can inspect the leaderboard workspace", async ({ page }) => {
+  test("@workflow [IR-P0-004] institute can inspect the leaderboard workspace", async ({ page }, testInfo) => {
     await loginAsRole(page, "institute");
     await expectInstituteWorkspace(page);
 
@@ -143,5 +143,6 @@ test.describe("Institute results leaderboard workspace", () => {
     await page.goto(`/institute/results/analysis?exam=${examId}`);
     await expect(page).toHaveURL(/\/institute\/results\/analysis(?:\?.*)?$/);
     await expect(page.getByText(/question risk board/i).first()).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath("IR-P0-004-results-leaderboard.png"), fullPage: true });
   });
 });

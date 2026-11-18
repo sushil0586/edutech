@@ -13,6 +13,8 @@ export type MobileAccountProfile = {
   student_profile: string | null;
   teacher_profile: string | null;
   is_active: boolean;
+  profile_completion_required?: boolean;
+  onboarding_status?: "not_started" | "in_progress" | "completed";
   student_context?: {
     full_name: string;
     program_name: string;

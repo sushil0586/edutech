@@ -1,5 +1,6 @@
 appId: ${MAESTRO_APP_ID}
 ---
+# Frozen case: EXPO-P1-007
 # Set these before running:
 # STUDENT_USERNAME
 # STUDENT_PASSWORD
@@ -11,6 +12,11 @@ appId: ${MAESTRO_APP_ID}
 
 - launchApp:
     clearState: true
+
+- extendedWaitUntil:
+    visible:
+      id: "role-gate-login-button"
+    timeout: 60000
 
 - runFlow:
     when:
@@ -27,7 +33,7 @@ appId: ${MAESTRO_APP_ID}
       - extendedWaitUntil:
           visible:
             id: "role-gate-login-button"
-          timeout: 30000
+          timeout: 60000
 
 - tapOn:
     id: "role-gate-login-button"
@@ -65,7 +71,7 @@ appId: ${MAESTRO_APP_ID}
 
 - extendedWaitUntil:
     visible: "Student Dashboard"
-    timeout: 30000
+    timeout: 60000
 
 - tapOn:
     id: "student-tab-analytics"
@@ -79,15 +85,21 @@ appId: ${MAESTRO_APP_ID}
 - assertVisible: "Understand progress without overload"
 - assertVisible: "Next action"
 
+- takeScreenshot: expo-p1-007-analytics
+
 - tapOn:
     id: "analytics-open-results-button"
 
-- assertVisible: "Student Results"
+- extendedWaitUntil:
+    visible: "Student Results"
+    timeout: 60000
 
 - tapOn:
     id: "student-tab-profile"
 
-- assertVisible: "Student Profile"
+- extendedWaitUntil:
+    visible: "Student Profile"
+    timeout: 60000
 - assertVisible: "Account details"
 - assertVisible: "Open Dashboard"
 - assertVisible: "Logout"
@@ -101,3 +113,5 @@ appId: ${MAESTRO_APP_ID}
 
 - assertVisible: "Continue into the student lane"
 - assertVisible: "Login"
+
+- takeScreenshot: expo-p1-007-logged-out

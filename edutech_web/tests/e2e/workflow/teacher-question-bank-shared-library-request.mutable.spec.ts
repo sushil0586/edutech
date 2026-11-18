@@ -396,6 +396,9 @@ test.describe("Teacher shared-library mutable request flow", () => {
       requestedQuestionText,
     );
     expect(requestableCardSnapshot).not.toBeNull();
+    if (!requestableCardSnapshot) {
+      throw new Error("The requestable shared-library question card was not found.");
+    }
     await expect(requestableCardSnapshot).toBeVisible();
     await expect(requestableCardSnapshot.getByText(/matching packages:/i).first()).toBeVisible();
     const requestButton = requestableCardSnapshot.getByRole("button", { name: /request access/i });

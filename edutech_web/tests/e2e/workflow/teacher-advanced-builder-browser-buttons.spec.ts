@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import {
   applyBuilderTemplate,
   applyResolvedScope,
@@ -13,11 +13,11 @@ const teacherCredentials = {
   password: "Demo@12345",
 };
 
-async function expectTeacherAdvancedBuilderHeading(page: Parameters<typeof test>[0]["page"]) {
+async function expectTeacherAdvancedBuilderHeading(page: Page) {
   await expect(page.getByRole("heading", { name: /advanced exam builder/i }).first()).toBeVisible();
 }
 
-async function expectFeatureEntitlementGate(page: Parameters<typeof test>[0]["page"]) {
+async function expectFeatureEntitlementGate(page: Page) {
   await expectTeacherAdvancedBuilderHeading(page);
   await expect(
     page.getByRole("heading", {

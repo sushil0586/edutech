@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 import {
   applyBuilderTemplate,
@@ -13,7 +13,7 @@ const teacherCredentials = {
   password: "Demo@12345",
 };
 
-async function teacherEntitlementGateVisible(page: Parameters<typeof test>[0]["page"]) {
+async function teacherEntitlementGateVisible(page: Page) {
   return page
     .getByRole("heading", {
       name: /advanced exam builder is not enabled for your institute yet/i,

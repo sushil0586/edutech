@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { Text, View } from "react-native";
@@ -13,6 +13,8 @@ import { fetchStudentDashboardBundle, fetchStudentResults } from "@/lib/api/stud
 import { useSessionStore } from "@/store/session-store";
 import { appStyles } from "@/theme/styles";
 import type { StudentAttemptListItem, StudentResult } from "@/types/api";
+
+const COMPLETED_ATTEMPT_PAGE_SIZE = 20;
 
 function normalize(value: string) {
   return value.trim().toLowerCase();
@@ -107,6 +109,7 @@ export default function AttemptsScreen() {
   const profile = useSessionStore((state) => state.profile);
   const selectedSubject = useSessionStore((state) => state.selectedSubject);
   const setSelectedSubject = useSessionStore((state) => state.setSelectedSubject);
+  const [visibleCompletedCount, setVisibleCompletedCount] = useState(COMPLETED_ATTEMPT_PAGE_SIZE);
 
   const query = useQuery({
     queryKey: ["student.attempts.bundle", accessToken],
@@ -157,9 +160,14 @@ export default function AttemptsScreen() {
     () => filteredAttempts.filter((attempt) => isCompletedAttempt(attempt)),
     [filteredAttempts],
   );
+  const visibleCompletedAttempts = completedAttempts.slice(0, visibleCompletedCount);
   const reviewReadyCount = completedAttempts.filter((attempt) =>
     latestResultForAttempt(results, attempt.id)?.review_available,
   ).length;
+
+  useEffect(() => {
+    setVisibleCompletedCount(COMPLETED_ATTEMPT_PAGE_SIZE);
+  }, [selectedSubject]);
 
   function openPrimaryAttemptRoute(attempt: StudentAttemptListItem) {
     if (isAttemptResumeEligible(attempt)) {
@@ -325,42 +333,56 @@ export default function AttemptsScreen() {
         {query.isLoading ? (
           <SkeletonList count={3} />
         ) : completedAttempts.length ? (
-          completedAttempts.map((attempt) => {
-            const result = latestResultForAttempt(results, attempt.id);
-            const tone = attemptTone(attempt, result);
-            return (
-              <View key={attempt.id} style={appStyles.productCard}>
-                <View style={appStyles.rowBetween}>
-                  <Text style={appStyles.label}>{attempt.exam_title || "Completed exam attempt"}</Text>
-                  <View style={[appStyles.chip, tone.container]}>
-                    <Text style={[appStyles.chipText, tone.text]}>{tone.label}</Text>
+          <>
+            {visibleCompletedAttempts.map((attempt) => {
+              const result = latestResultForAttempt(results, attempt.id);
+              const tone = attemptTone(attempt, result);
+              return (
+                <View key={attempt.id} style={appStyles.productCard}>
+                  <View style={appStyles.rowBetween}>
+                    <Text style={appStyles.label}>{attempt.exam_title || "Completed exam attempt"}</Text>
+                    <View style={[appStyles.chip, tone.container]}>
+                      <Text style={[appStyles.chipText, tone.text]}>{tone.label}</Text>
+                    </View>
+                  </View>
+                  <Text style={appStyles.body}>
+                    Status: {attempt.status}
+                    {result ? ` · ${result.percentage}%` : ""}
+                  </Text>
+                  <Text style={appStyles.helper}>{attemptSupportCopy(attempt, result)}</Text>
+                  <View style={appStyles.rowWrap}>
+                    <ActionButton
+                      label="Open Summary"
+                      compact
+                      tone="secondary"
+                      testID="attempts-open-summary-button"
+                      onPress={() => router.push(`/(attempt)/summary/${attempt.id}`)}
+                    />
+                    {result?.review_available ? (
+                      <ActionButton
+                        label="Open Review"
+                        compact
+                        testID="attempts-open-review-button"
+                        onPress={() => router.push(`/(attempt)/review/${attempt.id}`)}
+                      />
+                    ) : null}
                   </View>
                 </View>
-                <Text style={appStyles.body}>
-                  Status: {attempt.status}
-                  {result ? ` · ${result.percentage}%` : ""}
-                </Text>
-                <Text style={appStyles.helper}>{attemptSupportCopy(attempt, result)}</Text>
-                <View style={appStyles.rowWrap}>
-                  <ActionButton
-                    label="Open Summary"
-                    compact
-                    tone="secondary"
-                    testID="attempts-open-summary-button"
-                    onPress={() => router.push(`/(attempt)/summary/${attempt.id}`)}
-                  />
-                  {result?.review_available ? (
-                    <ActionButton
-                      label="Open Review"
-                      compact
-                      testID="attempts-open-review-button"
-                      onPress={() => router.push(`/(attempt)/review/${attempt.id}`)}
-                    />
-                  ) : null}
-                </View>
-              </View>
-            );
-          })
+              );
+            })}
+            {visibleCompletedCount < completedAttempts.length ? (
+              <ActionButton
+                label={`Show More Attempts (${visibleCompletedAttempts.length} of ${completedAttempts.length})`}
+                tone="secondary"
+                testID="attempts-show-more-button"
+                onPress={() =>
+                  setVisibleCompletedCount((count) =>
+                    Math.min(count + COMPLETED_ATTEMPT_PAGE_SIZE, completedAttempts.length),
+                  )
+                }
+              />
+            ) : null}
+          </>
         ) : (
           <StatePanel
             title="No completed attempts yet"

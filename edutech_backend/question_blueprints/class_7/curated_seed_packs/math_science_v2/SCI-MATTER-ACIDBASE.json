@@ -547,7 +547,7 @@
     {
       "question_type": "mcq_single",
       "difficulty_level": "foundation",
-      "question_text": "Which pair is correctly matched?",
+      "question_text": "Which substance type and observable property pair is correctly matched?",
       "explanation": "Acids are commonly sour, while bases commonly feel soapy or slippery.",
       "default_marks": "1.00",
       "negative_marks": "0.25",

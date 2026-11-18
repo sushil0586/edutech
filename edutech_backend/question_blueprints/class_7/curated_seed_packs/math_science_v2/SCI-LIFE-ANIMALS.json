@@ -469,7 +469,7 @@
     {
       "question_type": "mcq_single",
       "difficulty_level": "intermediate",
-      "question_text": "Which pair is correctly matched?",
+      "question_text": "Which animal and feeding-type pair is correctly matched?",
       "explanation": "Herbivores eat plants and carnivores eat flesh. Goat is a herbivore, while tiger is a carnivore.",
       "default_marks": "1.00",
       "negative_marks": "0.25",

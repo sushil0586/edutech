@@ -33,6 +33,7 @@ async function performPortalRequest<T>(
     headers: {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
+      "X-Client-Platform": "web",
       ...(init?.headers ?? {}),
     },
     body: init?.body,
@@ -242,6 +243,42 @@ export async function fetchPortalList<T>(path: string) {
   }
 
   return [];
+}
+
+export type PortalPage<T> = {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+};
+
+export async function fetchPortalPage<T>(path: string): Promise<PortalPage<T>> {
+  const payload = await requestPortalJson<PortalPage<T> | T[]>(path);
+
+  if (!Array.isArray(payload) && Array.isArray(payload.results)) {
+    return {
+      count: Number(payload.count ?? payload.results.length),
+      next: payload.next ?? null,
+      previous: payload.previous ?? null,
+      results: payload.results,
+    };
+  }
+
+  if (Array.isArray(payload)) {
+    return {
+      count: payload.length,
+      next: null,
+      previous: null,
+      results: payload,
+    };
+  }
+
+  return {
+    count: 0,
+    next: null,
+    previous: null,
+    results: [],
+  };
 }
 
 export async function fetchPortalCachedList<T>(path: string) {

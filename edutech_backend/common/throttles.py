@@ -59,3 +59,7 @@ class AdminProvisionRateThrottle(_UserOrIpThrottle):
         if settings.DEBUG:
             return None
         return super().get_cache_key(request, view)
+
+
+class PasswordResetRateThrottle(_UserOrIpThrottle):
+    scope = "password_reset"

@@ -14,7 +14,7 @@ appId: ${MAESTRO_APP_ID}
 
 - tapOn:
     id: "login-password-input"
-- inputText: Ansh@1789
+- inputText: ${STUDENT_PASSWORD}
 - runFlow:
     when:
       platform: Android

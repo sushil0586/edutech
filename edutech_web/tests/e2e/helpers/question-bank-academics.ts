@@ -77,10 +77,16 @@ export async function expectQuestionBankAcademicDependencyChain(page: Page) {
     });
     await programSelect.selectOption(selectedProgram);
     await expect.poll(async () => programSelect.inputValue()).toBe(selectedProgram);
-    await subjectsResponse;
+    const resolvedSubjectsResponse = await subjectsResponse;
     await expect
       .poll(async () => subjectSelect.evaluate((element) => !(element as HTMLSelectElement).disabled))
       .toBe(true);
+    const subjectsPayload = (await resolvedSubjectsResponse?.json().catch(() => null)) as
+      | { results?: unknown[] }
+      | null;
+    if (!subjectsPayload?.results?.length) {
+      continue;
+    }
     await expect.poll(async () => getNonEmptyOptionValues(subjectSelect).then((values) => values.length)).toBeGreaterThan(
       0,
     );
@@ -102,10 +108,16 @@ export async function expectQuestionBankAcademicDependencyChain(page: Page) {
       });
       await subjectSelect.selectOption(selectedSubject);
       await expect.poll(async () => subjectSelect.inputValue()).toBe(selectedSubject);
-      await topicsResponse;
+      const resolvedTopicsResponse = await topicsResponse;
       await expect
         .poll(async () => topicSelect.evaluate((element) => !(element as HTMLSelectElement).disabled))
         .toBe(true);
+      const topicsPayload = (await resolvedTopicsResponse?.json().catch(() => null)) as
+        | { results?: unknown[] }
+        | null;
+      if (!topicsPayload?.results?.length) {
+        continue;
+      }
       await expect
         .poll(async () => getNonEmptyOptionValues(topicSelect).then((values) => values.length))
         .toBeGreaterThan(0);

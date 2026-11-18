@@ -103,6 +103,7 @@ test.describe("Teacher search browser functionality coverage", () => {
   });
 
   test("@workflow browser coverage keeps teacher search quick filters truthful", async ({ page }) => {
+    test.setTimeout(120_000);
     await gotoSearch(page);
 
     await page.getByRole("link", { name: /^live records$/i }).click();

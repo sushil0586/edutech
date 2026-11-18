@@ -30,12 +30,26 @@ class Command(BaseCommand):
             action="store_true",
             help="Keep linked Django auth users after deleting institute-scoped profiles.",
         )
+        parser.add_argument(
+            "--require-synthetic-fixture",
+            action="store_true",
+            help=(
+                "Refuse deletion unless institute metadata contains synthetic_fixture=true. "
+                "Use this guard for automated QA cleanup."
+            ),
+        )
 
     def handle(self, *args, **options):
         code = str(options["code"]).strip()
         institute = Institute.objects.filter(code=code).first()
         if institute is None:
             raise CommandError(f"Institute with code '{code}' was not found.")
+        if options["require_synthetic_fixture"] and not bool(
+            (institute.metadata or {}).get("synthetic_fixture")
+        ):
+            raise CommandError(
+                f"Institute '{code}' is not marked metadata.synthetic_fixture=true; refusing guarded purge."
+            )
 
         plan = self._build_plan(institute)
         users = list(

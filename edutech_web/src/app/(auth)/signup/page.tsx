@@ -1,7 +1,7 @@
 import Link from "next/link";
+import { PublicPolicyLinks } from "@/components/ui/public-policy-links";
 import { redirect } from "next/navigation";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
-import { PageHeader } from "@/components/ui/page-header";
 import { RegistrationHub } from "@/components/auth/registration-hub";
 import {
   fetchCurrentAccountProfile,
@@ -97,53 +97,13 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
         </div>
       </header>
 
-      <section className="signupPageIntro authIntroHero">
-        <div className="authIntroMain">
-          <PageHeader
-            eyebrow="Guided signup"
-            title="Start your learning journey with Nexora"
-            description="Corporate-ready onboarding for students, parents, and teachers. Keep account creation quick, then complete the role profile once after login."
-            className="pageHeaderCompact"
-          />
-
-          <div className="signupInlineLaneStrip">
-            {publicPortalAccessLanes.map((lane) => (
-              <Link className="signupInlineLanePill" href={lane.signupHref} key={lane.role}>
-                <strong>{lane.title}</strong>
-                <span>{lane.badge}</span>
-              </Link>
-            ))}
-          </div>
-        </div>
-
-        <aside className="authIntroPanel">
-          <span className="eyebrow">Why this flow works</span>
-          <strong>Fast first step, structured profile next.</strong>
-          <p>
-            We keep account creation intentionally light, then collect the richer role
-            details after login so learners and teachers get into the product faster.
-          </p>
-          <div className="authIntroMetrics">
-            <article className="authInlineStat">
-              <span>Step 1</span>
-              <strong>Create login</strong>
-              <small>Email, phone, password, and lane.</small>
-            </article>
-            <article className="authInlineStat">
-              <span>Step 2</span>
-              <strong>Complete role profile</strong>
-              <small>Academic or teaching details come next.</small>
-            </article>
-          </div>
-        </aside>
-      </section>
-
       <div className="authCard authCardWide signupWorkspace">
         <RegistrationHub
           initialRole={initialRole}
           lanes={publicPortalAccessLanes}
           registrationOptions={registrationOptions}
         />
+        <PublicPolicyLinks />
       </div>
     </div>
   );

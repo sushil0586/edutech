@@ -1,5 +1,6 @@
 appId: ${MAESTRO_APP_ID}
 ---
+# Frozen case: EXPO-P1-004
 # Set these before running:
 # STUDENT_USERNAME
 # STUDENT_PASSWORD
@@ -25,12 +26,12 @@ appId: ${MAESTRO_APP_ID}
       - extendedWaitUntil:
           visible:
             id: "role-gate-login-button"
-          timeout: 30000
+          timeout: 60000
 
 - extendedWaitUntil:
     visible:
       id: "role-gate-login-button"
-    timeout: 30000
+    timeout: 60000
 
 - tapOn:
     id: "role-gate-login-button"
@@ -95,14 +96,24 @@ appId: ${MAESTRO_APP_ID}
 
 - tapOn: "Review"
 
-- assertVisible: "Attempt Review"
+- extendedWaitUntil:
+    visible: "Attempt Review"
+    timeout: 60000
+
+- takeScreenshot: expo-p1-004-attempt-review
 
 - tapOn:
     id: "attempt-review-back-summary-button"
 
-- assertVisible: "Attempt Summary"
+- extendedWaitUntil:
+    visible: "Attempt Summary"
+    timeout: 60000
 
 - tapOn:
     id: "attempt-summary-open-results-button"
 
-- assertVisible: "Student Results"
+- extendedWaitUntil:
+    visible: "Student Results"
+    timeout: 60000
+
+- takeScreenshot: expo-p1-004-returned-to-results

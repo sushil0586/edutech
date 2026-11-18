@@ -127,6 +127,7 @@ export type LookupQuestion = {
   passage_order: number | null;
   passage_title: string;
   question_type: string;
+  question_type_definition?: TeacherQuestionTypeDefinition | null;
   difficulty_level: string;
   question_text: string;
   explanation: string;
@@ -601,6 +602,7 @@ async function performTeacherBuilderRequest<T>(
     method: init?.method ?? "GET",
     headers: {
       Authorization: `Bearer ${accessToken}`,
+      "X-Client-Platform": "web",
       ...(isFormDataBody ? {} : { "Content-Type": "application/json" }),
       ...(init?.headers ?? {}),
     },
@@ -860,6 +862,7 @@ export async function fetchTeacherQuestionPage(filters?: {
       revision_priority: filters?.revision_priority,
       source_state: filters?.source_state,
     })}`,
+    { cache: "no-store" },
   );
 }
 
@@ -1041,6 +1044,20 @@ export async function updateTeacherQuestion(
     `/api/v1/question-bank/questions/${questionId}/`,
     {
       method: "PATCH",
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export async function reportTeacherQuestionDefect(payload: {
+  question: string;
+  category: string;
+  description: string;
+}) {
+  return requestTeacherBuilderJson<{ id: string; status: string }>(
+    "/api/v1/question-bank/content-defects/",
+    {
+      method: "POST",
       body: JSON.stringify(payload),
     },
   );

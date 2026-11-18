@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ScrollView, Text, TextInput, View } from "react-native";
+import { AccessibilityInfo, ScrollView, Text, TextInput, View } from "react-native";
 import { ScreenShell } from "@/components/screen-shell";
 import { HeroCard } from "@/components/hero-card";
 import { ActionButton } from "@/components/action-button";
@@ -246,10 +246,14 @@ export default function AttemptScreen() {
   const [markedForReview, setMarkedForReview] = useState(false);
   const [pendingAction, setPendingAction] = useState<"save" | "section" | "submit" | null>(null);
   const [feedback, setFeedback] = useState("");
+  const [remainingTime, setRemainingTime] = useState<number | null>(null);
+  const [timerAnnouncement, setTimerAnnouncement] = useState("");
   const [pendingNavigation, setPendingNavigation] = useState<PendingNavigation>(null);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const scrollRef = useRef<ScrollView | null>(null);
   const shouldRefocusQuestion = useRef(false);
+  const seededQuestionId = useRef<string | null>(null);
+  const draftHasChanges = useRef(false);
 
   const query = useQuery({
     queryKey: ["student.attempt.detail", attemptId, accessToken],
@@ -316,12 +320,6 @@ export default function AttemptScreen() {
     ? Math.round((answeredCount / detail.total_questions) * 100)
     : 0;
   const reviewMarkedCount = detail?.answers.filter((answer) => answer.is_marked_for_review).length ?? 0;
-  const remainingTime = detail
-    ? secondsRemaining(
-        detail.section_runtime.current_section_expires_at ?? detail.expires_at,
-        detail.server_time,
-      )
-    : null;
   const attemptExpired = detail
     ? isAttemptExpired(detail.expires_at, detail.server_time)
     : false;
@@ -344,6 +342,10 @@ export default function AttemptScreen() {
   const currentDraftOptionPresentation = optionPresentation(currentQuestion, selectedOption);
 
   useEffect(() => {
+    draftHasChanges.current = currentQuestionHasDraftChanges;
+  }, [currentQuestionHasDraftChanges]);
+
+  useEffect(() => {
     if (!selectedQuestionId && visibleQuestions[0]?.question) {
       setSelectedQuestionId(visibleQuestions[0].question);
     }
@@ -351,11 +353,16 @@ export default function AttemptScreen() {
 
   useEffect(() => {
     if (!currentQuestion) return;
+    const questionChanged = seededQuestionId.current !== currentQuestion.question;
+    if (!questionChanged && draftHasChanges.current) {
+      return;
+    }
     const draft = seedDraft(answerMap.get(currentQuestion.question));
     setSelectedOption(draft.selectedOption);
     setSelectedOptionIds(draft.selectedOptionIds);
     setAnswerText(draft.answerText);
     setMarkedForReview(draft.markedForReview);
+    seededQuestionId.current = currentQuestion.question;
   }, [currentQuestion, answerMap]);
 
   useEffect(() => {
@@ -370,6 +377,56 @@ export default function AttemptScreen() {
 
     return () => clearTimeout(timer);
   }, [currentQuestion]);
+
+  useEffect(() => {
+    if (!detail) {
+      setRemainingTime(null);
+      return;
+    }
+
+    const initialRemaining = secondsRemaining(
+      detail.section_runtime.current_section_expires_at ?? detail.expires_at,
+      detail.server_time,
+    );
+    setRemainingTime(initialRemaining);
+    setTimerAnnouncement("");
+    if (initialRemaining === null || initialRemaining <= 0) {
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setRemainingTime((current) => {
+        if (current === null || current <= 0) {
+          return current;
+        }
+        const next = current - 1;
+        if (next === 900) setTimerAnnouncement("15 minutes remaining");
+        if (next === 300) setTimerAnnouncement("5 minutes remaining");
+        if (next === 60) setTimerAnnouncement("1 minute remaining");
+        if (next === 0) setTimerAnnouncement("Time has ended");
+        return next;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [
+    detail?.expires_at,
+    detail?.section_runtime.current_section_expires_at,
+    detail?.server_time,
+  ]);
+
+  useEffect(() => {
+    if (!showSubmitConfirm) return;
+
+    const frame = requestAnimationFrame(() => {
+      scrollRef.current?.scrollToEnd({ animated: true });
+      AccessibilityInfo.announceForAccessibility(
+        "Ready to submit. Review unanswered questions before submitting.",
+      );
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [showSubmitConfirm]);
 
   function keepCurrentQuestionInFocus() {
     scrollRef.current?.scrollTo({
@@ -616,7 +673,12 @@ export default function AttemptScreen() {
             </View>
             <View style={appStyles.runtimeStatusItem}>
               <Text style={appStyles.metricLabel}>Time left</Text>
-              <Text style={appStyles.runtimeStatusValue}>{compactTimeLabel(remainingTime)}</Text>
+              <Text
+                accessibilityLabel={`Exam time remaining: ${timeLabel(remainingTime)}`}
+                style={appStyles.runtimeStatusValue}
+              >
+                {compactTimeLabel(remainingTime)}
+              </Text>
             </View>
             <View style={appStyles.runtimeStatusItem}>
               <Text style={appStyles.metricLabel}>Saved</Text>
@@ -629,6 +691,11 @@ export default function AttemptScreen() {
             <View style={[appStyles.progressFill, { flex: Math.max(completionPercentage, 1) }]} />
             <View style={{ flex: Math.max(100 - completionPercentage, 0) }} />
           </View>
+          {timerAnnouncement ? (
+            <Text accessibilityLiveRegion="polite" style={appStyles.accessibilityOnly}>
+              {timerAnnouncement}
+            </Text>
+          ) : null}
         </View>
       ) : null}
 
@@ -764,6 +831,8 @@ export default function AttemptScreen() {
           <View style={appStyles.fieldStack}>
             <Text style={appStyles.label}>{answerFieldLabel(currentQuestion)}</Text>
             <TextInput
+              accessibilityLabel={answerFieldLabel(currentQuestion)}
+              accessibilityHint="Enter your answer, then use Save Answer to keep it"
               multiline
               numberOfLines={4}
               onChangeText={setAnswerText}
@@ -861,7 +930,12 @@ export default function AttemptScreen() {
         ) : null}
 
         {feedback ? (
-          <View style={appStyles.sectionCard}>
+          <View
+            accessibilityLabel={feedback}
+            accessibilityLiveRegion="polite"
+            accessible
+            style={appStyles.sectionCard}
+          >
             <Text
               style={
                 feedback.toLowerCase().includes("success") ||

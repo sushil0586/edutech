@@ -3,6 +3,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 
 from apps.institutes.models import Institute
+from apps.accounts.policies import validate_account_profile_role_policy
 from apps.students.models import StudentProfile
 from apps.teachers.models import TeacherProfile
 from common.models import BaseModel
@@ -23,6 +24,28 @@ class OnboardingStatus(models.TextChoices):
     NOT_STARTED = "not_started", "Not Started"
     IN_PROGRESS = "in_progress", "In Progress"
     COMPLETED = "completed", "Completed"
+
+
+class PasswordResetDeliveryStatus(models.TextChoices):
+    PENDING = "pending", "Pending"
+    SENT = "sent", "Sent"
+    FAILED = "failed", "Failed"
+
+
+class SupportRequestCategory(models.TextChoices):
+    ACCOUNT = "account", "Account Access"
+    ASSESSMENT = "assessment", "Assessment"
+    DATA_EXPORT = "data_export", "Data Export"
+    DATA_DELETION = "data_deletion", "Data Deletion"
+    PRIVACY = "privacy", "Privacy"
+    OTHER = "other", "Other"
+
+
+class SupportRequestStatus(models.TextChoices):
+    OPEN = "open", "Open"
+    IN_PROGRESS = "in_progress", "In Progress"
+    RESOLVED = "resolved", "Resolved"
+    CLOSED = "closed", "Closed"
 
 
 class AccountProfile(BaseModel):
@@ -73,37 +96,7 @@ class AccountProfile(BaseModel):
 
     def clean(self):
         super().clean()
-        if self.role == AccountRole.PLATFORM_ADMIN:
-            return
-
-        if self.institute_id is None:
-            raise ValidationError({"institute": "Institute is required for this role."})
-
-        if self.role == AccountRole.STUDENT:
-            if self.student_profile_id is None and not self.profile_completion_required:
-                raise ValidationError({"student_profile": "Student profile is required for student role."})
-            if self.student_profile_id and self.student_profile.institute_id != self.institute_id:
-                raise ValidationError(
-                    {"student_profile": "Student profile must belong to the selected institute."}
-                )
-
-        if self.role == AccountRole.TEACHER:
-            if self.teacher_profile_id is None and not self.profile_completion_required:
-                raise ValidationError({"teacher_profile": "Teacher profile is required for teacher role."})
-            if self.teacher_profile_id and self.teacher_profile.institute_id != self.institute_id:
-                raise ValidationError(
-                    {"teacher_profile": "Teacher profile must belong to the selected institute."}
-                )
-
-        if self.role in {AccountRole.INSTITUTE_ADMIN, AccountRole.PARENT}:
-            if self.student_profile_id and self.student_profile.institute_id != self.institute_id:
-                raise ValidationError(
-                    {"student_profile": "Student profile must belong to the selected institute."}
-                )
-            if self.teacher_profile_id and self.teacher_profile.institute_id != self.institute_id:
-                raise ValidationError(
-                    {"teacher_profile": "Teacher profile must belong to the selected institute."}
-                )
+        validate_account_profile_role_policy(profile=self, role_constants=AccountRole)
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -111,6 +104,69 @@ class AccountProfile(BaseModel):
 
     def __str__(self):
         return f"{self.user.username} - {self.role}"
+
+
+class PasswordResetRequest(BaseModel):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="password_reset_requests",
+    )
+    token_digest = models.CharField(max_length=64, unique=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(blank=True, null=True)
+    delivery_status = models.CharField(
+        max_length=20,
+        choices=PasswordResetDeliveryStatus.choices,
+        default=PasswordResetDeliveryStatus.PENDING,
+    )
+    requested_ip = models.GenericIPAddressField(blank=True, null=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "is_active", "expires_at"]),
+            models.Index(fields=["delivery_status", "created_at"]),
+        ]
+
+
+class SupportRequest(BaseModel):
+    requester = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="support_requests",
+    )
+    institute = models.ForeignKey(
+        Institute,
+        on_delete=models.CASCADE,
+        related_name="support_requests",
+        blank=True,
+        null=True,
+    )
+    category = models.CharField(max_length=30, choices=SupportRequestCategory.choices)
+    subject = models.CharField(max_length=160)
+    description = models.TextField()
+    status = models.CharField(
+        max_length=20,
+        choices=SupportRequestStatus.choices,
+        default=SupportRequestStatus.OPEN,
+    )
+    resolution_notes = models.TextField(blank=True)
+    resolved_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name="support_requests_resolved",
+        blank=True,
+        null=True,
+    )
+    resolved_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["institute", "status", "created_at"]),
+            models.Index(fields=["requester", "status"]),
+        ]
 
 
 class AccountLocation(BaseModel):

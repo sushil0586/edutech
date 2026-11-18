@@ -1,0 +1,1438 @@
+{
+  "created": "2026-10-21",
+  "status": "In progress",
+  "scope": {
+    "web": [
+      "platform_admin",
+      "institute_admin",
+      "teacher",
+      "student",
+      "parent"
+    ],
+    "android": [
+      "student"
+    ],
+    "ios": [
+      "student"
+    ]
+  },
+  "workstreams": [
+    {
+      "id": "W01",
+      "slug": "01-release-and-deployment",
+      "title": "Release and deployment",
+      "owner": "Engineering lead and release engineer",
+      "support": "Backend engineer, web engineer and QA",
+      "effort": "4–7 engineering days",
+      "depends": "Launch scope decisions D01 and D02",
+      "audit": [
+        "REL01",
+        "REL02",
+        "REL03",
+        "HYGIENE01"
+      ],
+      "outcome": "One clean source revision produces the same identifiable web and API release that QA certifies on HTTPS staging.",
+      "paths": [
+        "Jenkinsfile",
+        "deployment/",
+        "edutech_backend/config/",
+        "edutech_web/next.config.ts"
+      ],
+      "tasks": [
+        {
+          "number": "01",
+          "title": "Declare the active release sources",
+          "gate": "Pilot",
+          "dependencies": [],
+          "work": [
+            "Declare edutech_backend, edutech_web and nexora_student_mobile as active roots; retain Flutter and the nested mirror as archives until removal is separately scoped.",
+            "Record current local/main/stage SHAs, lockfiles, runtime versions and migration inventories without copying secrets.",
+            "Create an integration branch and review the existing dirty changes; preserve the stage-applied economy migration and its model fields."
+          ],
+          "acceptance": [
+            "A clean integration commit contains the required main/candidate histories and preserves applied migrations.",
+            "The active release manifest identifies code, dependencies and configuration ownership."
+          ],
+          "verification": [
+            "Compare migration files and applied history against an isolated staging database clone.",
+            "Run system checks, model/migration checks and focused migration/route regressions."
+          ],
+          "status": "In progress",
+          "id": "W01.01",
+          "status_note": "Local evidence is recorded in the W01 execution report; live staging and formal dependent gates remain separate."
+        },
+        {
+          "number": "02",
+          "title": "Build reproducible release artifacts",
+          "gate": "Pilot",
+          "dependencies": [
+            "W01.01"
+          ],
+          "work": [
+            "Run backend, web and mobile static gates from the clean commit.",
+            "Build one immutable release artifact with source SHA, dependency digests and environment identity.",
+            "Expose matching non-secret provenance in backend health and web response headers."
+          ],
+          "acceptance": [
+            "CI refuses dirty or unidentified candidates and records artifact digests.",
+            "Web and API runtime identity matches the requested candidate; no build reports local."
+          ],
+          "verification": [
+            "Execute release-manifest/pipeline contract tests.",
+            "Compare the running headers/health with the archived manifest."
+          ],
+          "status": "Passed",
+          "id": "W01.02",
+          "status_note": "Local evidence is recorded in the W01 execution report; live staging and formal dependent gates remain separate."
+        },
+        {
+          "number": "03",
+          "title": "Correct and verify HTTPS routing",
+          "gate": "Pilot",
+          "dependencies": [
+            "W01.02"
+          ],
+          "work": [
+            "Review effective shared-host nginx configuration before applying the existing remediations.",
+            "Verify intended hostname, redirects, API routes, schema/docs and Django-admin separation.",
+            "Verify certificate, trusted origins, cookie attributes and unknown-host rejection."
+          ],
+          "acceptance": [
+            "Expected routes resolve without loops; unknown hosts do not reach an unintended application.",
+            "Login and refresh work through HTTPS with the intended cookie and origin policies."
+          ],
+          "verification": [
+            "Run deployment entrypoint checks and focused browser provenance/security gates.",
+            "Retain sanitized headers and effective configuration digest."
+          ],
+          "status": "In progress",
+          "id": "W01.03",
+          "status_note": "Local evidence is recorded in the W01 execution report; live staging and formal dependent gates remain separate."
+        },
+        {
+          "number": "04",
+          "title": "Certify the deployed assessment lifecycle",
+          "gate": "Pilot",
+          "dependencies": [
+            "W01.03",
+            "W02.02",
+            "W03.01"
+          ],
+          "work": [
+            "Run the disposable institute/account/import/build/assign/start/save/submit/result journey on the exact HTTPS candidate.",
+            "Include anonymous, draft, inactive assignment, unassigned student, future/expired window, cross-student and cross-tenant denials.",
+            "Clean up exact synthetic fixtures and record both archive behavior and any deliberate purge."
+          ],
+          "acceptance": [
+            "Correct score, rank and result visibility agree across browser/API/database.",
+            "No critical negative path fails and fixture cleanup is independently verified."
+          ],
+          "verification": [
+            "Retain trace, screenshots, API/database assertions and candidate manifest together.",
+            "Require the deployed result, not a local-only pass."
+          ],
+          "status": "Blocked",
+          "id": "W01.04",
+          "status_note": "Local evidence is recorded in the W01 execution report; live staging and formal dependent gates remain separate."
+        },
+        {
+          "number": "05",
+          "title": "Rehearse promotion and rollback",
+          "gate": "Pilot",
+          "dependencies": [
+            "W01.04",
+            "W09.04"
+          ],
+          "work": [
+            "Run a staged promotion and health verification using the release runbook.",
+            "Rehearse rollback in an isolated environment with a migration-compatible database strategy.",
+            "Record recovery owner, trigger, elapsed recovery time and known rollback limits."
+          ],
+          "acceptance": [
+            "A release can be identified, promoted and recovered using the runbook.",
+            "Pilot release approval references the exact candidate and its test evidence."
+          ],
+          "verification": [
+            "Perform the rollback rehearsal without affecting real learners.",
+            "Verify web/API/data consistency after recovery."
+          ],
+          "status": "Blocked",
+          "id": "W01.05",
+          "status_note": "Full isolated database/media/web/API rollback and forward recovery passed. Live promotion and approved operational recovery targets remain pending."
+        }
+      ],
+      "status": "In progress",
+      "execution_report": "../../qa/62-w01-release-foundation-20261021.md"
+    },
+    {
+      "id": "W02",
+      "slug": "02-access-and-tenant-policies",
+      "title": "Access and tenant policies",
+      "owner": "Backend engineer",
+      "support": "Product owner and security QA",
+      "effort": "5–9 engineering days",
+      "depends": "D03 teacher collaboration, D04 archive behavior and D05 public exam model",
+      "audit": [
+        "AUTH01",
+        "AUTH02",
+        "EXAM01"
+      ],
+      "outcome": "Each role can act only on the agreed institute, learner and content scope, including after tenant suspension.",
+      "paths": [
+        "edutech_backend/apps/accounts/",
+        "edutech_backend/apps/exams/",
+        "edutech_backend/apps/attempts/",
+        "edutech_backend/apps/results/",
+        "edutech_backend/apps/parents/"
+      ],
+      "tasks": [
+        {
+          "number": "01",
+          "title": "Freeze the access contract",
+          "gate": "Pilot",
+          "dependencies": [],
+          "work": [
+            "Define platform, institute, teacher, student and parent read/write scope for roster, questions, exams, attempts, grades and money.",
+            "Choose institute-wide teacher collaboration or assignment-limited access explicitly.",
+            "Separate archive/hide, suspend access and delete semantics; define effects on active attempts and parent visibility."
+          ],
+          "acceptance": [
+            "A reviewed role/resource matrix states both permitted and denied operations.",
+            "Suspension behavior preserves saved answers and defines whether active attempts may finish."
+          ],
+          "verification": [
+            "Review examples with two teachers, two cohorts, two institutes, two students and a linked/unlinked parent."
+          ],
+          "status": "Ready for QA",
+          "id": "W02.01"
+        },
+        {
+          "number": "02",
+          "title": "Enforce tenant and account state",
+          "gate": "Pilot",
+          "dependencies": [
+            "W02.01"
+          ],
+          "work": [
+            "Apply the agreed tenant-state checks centrally to protected reads/writes.",
+            "Handle login, refresh and existing sessions consistently when an institute is suspended.",
+            "Preserve the audit trail and provide an explicit recovery/reactivation action."
+          ],
+          "acceptance": [
+            "A suspended tenant cannot continue ordinary protected operations through an old session.",
+            "Active exam behavior matches the approved interruption policy; reactivation is controlled and audited."
+          ],
+          "verification": [
+            "Use synthetic active/suspended tenants to test password login, refresh, existing access token and direct API calls.",
+            "Verify no saved answers are destroyed by suspension."
+          ],
+          "status": "Ready for QA",
+          "id": "W02.02"
+        },
+        {
+          "number": "03",
+          "title": "Align teacher and parent scope",
+          "gate": "Pilot for teacher; parent gate if offered",
+          "dependencies": [
+            "W02.01"
+          ],
+          "work": [
+            "Apply the chosen teacher contract to collections, detail routes, CRUD, builder, grading, monitoring, reports and exports.",
+            "Check parent relationship status and per-child permissions on every child-specific endpoint.",
+            "Replace UI wording that claims narrower scope than the API enforces."
+          ],
+          "acceptance": [
+            "Two disjoint teacher assignments behave exactly as the chosen contract specifies.",
+            "Revoked, suspended or unrelated parent links do not expose child information."
+          ],
+          "verification": [
+            "Execute direct API and browser negative matrices, including forged identifiers and exports."
+          ],
+          "status": "Ready for QA",
+          "id": "W02.03"
+        },
+        {
+          "number": "04",
+          "title": "Resolve public exam eligibility",
+          "gate": "Public web if platform exams are offered",
+          "dependencies": [
+            "W02.01",
+            "W05.01"
+          ],
+          "work": [
+            "Choose institute-local copies or a controlled cross-institute platform-exam access path.",
+            "Define academic mapping, assignment, entitlement, reporting ownership and allowed learner populations.",
+            "Implement the selected path without weakening ordinary tenant isolation."
+          ],
+          "acceptance": [
+            "A private-institute learner can discover, unlock if required, take and review an eligible platform exam.",
+            "An ineligible learner is rejected at discovery/detail/start, and results remain learner-scoped."
+          ],
+          "verification": [
+            "Run a fresh public-hub plus private-institute fixture through the complete result lifecycle."
+          ],
+          "status": "Deferred",
+          "id": "W02.04"
+        },
+        {
+          "number": "05",
+          "title": "Certify authorization on the release candidate",
+          "gate": "Pilot",
+          "dependencies": [
+            "W02.02",
+            "W02.03"
+          ],
+          "work": [
+            "Bind the agreed access matrix to executable cases and the release SHA.",
+            "Include stale sessions, inactive profiles/assignments, exports, manual grade actions and economy mutations.",
+            "Run the public-exam cases separately when W02.04 enters release scope."
+          ],
+          "acceptance": [
+            "No unresolved critical access defect exists for a feature included in the release.",
+            "Every exclusion is reflected in route/API availability and customer promises."
+          ],
+          "verification": [
+            "Run focused backend denial tests and real HTTPS browser role/tenant tests."
+          ],
+          "status": "Ready for QA",
+          "id": "W02.05"
+        }
+      ],
+      "status": "Ready for QA",
+      "execution_report": "../../qa/64-w02-access-and-tenant-verification-20261021.md"
+    },
+    {
+      "id": "W03",
+      "slug": "03-assessment-workflows",
+      "title": "Assessment workflows",
+      "owner": "Backend and web engineers",
+      "support": "Assessment QA and academic lead",
+      "effort": "6–10 engineering days",
+      "depends": "W02 access contract and W05 pilot content selection",
+      "audit": [
+        "NAV01",
+        "REVIEW01",
+        "RELIABILITY01"
+      ],
+      "outcome": "Teachers can reliably deliver the included assessments and students receive correct, safely published results.",
+      "paths": [
+        "edutech_backend/apps/exams/",
+        "edutech_backend/apps/attempts/",
+        "edutech_backend/apps/results/",
+        "edutech_web/src/features/results-workspace/",
+        "edutech_web/src/components/ui/attempt-resilience-panel.tsx",
+        "edutech_web/tests/e2e/workflow/"
+      ],
+      "tasks": [
+        {
+          "number": "01",
+          "title": "Stabilize the objective assessment baseline",
+          "gate": "Pilot",
+          "dependencies": [
+            "W02.01",
+            "W05.01"
+          ],
+          "work": [
+            "Freeze the pilot question types, exam policies and reporting fields; recommended initial scope is objective exams.",
+            "Keep deterministic scoring/negative-marking fixtures and result/publication expectations.",
+            "Cover assignment changes, shuffled questions/options, duplicate saves/submits and stale answer requests."
+          ],
+          "acceptance": [
+            "Included question types score correctly and produce one final result per intended attempt policy.",
+            "Published/review-visible information matches the configured release policy."
+          ],
+          "verification": [
+            "Run backend scoring contracts and the fresh full browser lifecycle without weakening assertions."
+          ],
+          "status": "In progress",
+          "id": "W03.01"
+        },
+        {
+          "number": "02",
+          "title": "Resolve teacher results navigation",
+          "gate": "Pilot",
+          "dependencies": [
+            "W03.01"
+          ],
+          "work": [
+            "Reproduce the failed exam-selection click under production web builds.",
+            "Inspect client hydration, pending navigation, data reload and event/locator timing.",
+            "Fix the confirmed product or harness cause while retaining real click-based coverage."
+          ],
+          "acceptance": [
+            "Repeated exam selections and browser refresh retain the expected exam context.",
+            "The previously failed flow passes three consecutive isolated runs and one representative role pack."
+          ],
+          "verification": [
+            "Keep both failing and corrected traces; verify URL, selected exam and rendered data agree."
+          ],
+          "status": "In progress",
+          "id": "W03.02"
+        },
+        {
+          "number": "03",
+          "title": "Prove answer and session recovery",
+          "gate": "Pilot",
+          "dependencies": [
+            "W03.01"
+          ],
+          "work": [
+            "Test refresh/reload, connection loss before and after save acknowledgment, token expiry, duplicate requests and lost submit responses.",
+            "Use server-authoritative timing and explicit saved/saving/failed states.",
+            "Document recovery when an exam window ends or a service restarts; do not promise fully offline examination."
+          ],
+          "acceptance": [
+            "Acknowledged answers survive recovery and timed-out work cannot extend the exam incorrectly.",
+            "Submission retries cannot create duplicate grading or double consumption of access allowances."
+          ],
+          "verification": [
+            "Run long-session and interrupted-network fixtures on web; reuse the API contracts in W08 mobile testing."
+          ],
+          "status": "In progress",
+          "id": "W03.03"
+        },
+        {
+          "number": "04",
+          "title": "Certify descriptive grading if included",
+          "gate": "Descriptive assessment release",
+          "dependencies": [
+            "W02.03",
+            "W03.01"
+          ],
+          "work": [
+            "Cover reviewer assignment/claiming, rubric marks, recheck, moderation and unauthorized reviewers.",
+            "Verify pending grades block or qualify result publication as intended.",
+            "Regenerate rankings/analytics after approved grade changes with an audit trail."
+          ],
+          "acceptance": [
+            "A descriptive answer reaches its correct reviewed result without early disclosure or lost grading history.",
+            "Unsupported review variants are disabled for the pilot if this gate is deferred."
+          ],
+          "verification": [
+            "Run a populated manual-review browser journey and backend moderation/result regressions."
+          ],
+          "status": "Deferred",
+          "id": "W03.04"
+        },
+        {
+          "number": "05",
+          "title": "Reconcile learner reports and notifications",
+          "gate": "Pilot for results; broader release for optional alerts",
+          "dependencies": [
+            "W03.01",
+            "W03.02"
+          ],
+          "work": [
+            "Compare attempt summary, result list, leaderboard and analytics totals against deterministic fixtures.",
+            "Verify empty, pending review, unpublished, failed and completed states.",
+            "Test notification/parent alert generation, link targets and permission behavior only for enabled channels."
+          ],
+          "acceptance": [
+            "Core result data is internally consistent and every active action leads to the correct learner/exam.",
+            "Charts and recommendations explain insufficient-data states and avoid implying unsupported predictions."
+          ],
+          "verification": [
+            "Capture browser/API/database comparisons and enabled notification delivery evidence."
+          ],
+          "status": "In progress",
+          "id": "W03.05"
+        }
+      ],
+      "status": "In progress",
+      "execution_report": "../../qa/65-w03-objective-recovery-verification-20261021.md",
+      "pilot_scope": "Objective exams only, confirmed 21 October; descriptive grading excluded. Actual curriculum, content and policy restrictions still require W05 approval."
+    },
+    {
+      "id": "W04",
+      "slug": "04-web-ui-and-ux",
+      "title": "Web UI and UX",
+      "owner": "Product designer and web engineer",
+      "support": "QA and representative institute users",
+      "effort": "8–14 engineering days plus design and user sessions",
+      "depends": "W02 role contract and W03 included exam workflow",
+      "audit": [
+        "UX01",
+        "UX02",
+        "UX03",
+        "UX04",
+        "A11Y01"
+      ],
+      "outcome": "Each role reaches its main task quickly through readable, bounded screens on desktop and mobile web.",
+      "paths": [
+        "edutech_web/src/components/ui/teacher-question-bank-workspace.tsx",
+        "edutech_web/src/components/ui/advanced-exam-builder.tsx",
+        "edutech_web/src/components/auth/",
+        "edutech_web/src/app/",
+        "edutech_web/src/app/globals.css"
+      ],
+      "tasks": [
+        {
+          "number": "01",
+          "title": "Define role tasks and simplify navigation",
+          "gate": "Pilot",
+          "dependencies": [],
+          "work": [
+            "Map first-use and repeat-use tasks for institute admin, teacher, student and parent web.",
+            "Prioritize student continue/start exam, teacher find-question/create exam and institute roster/setup readiness.",
+            "Preserve the component system; remove redundant banners, repeated metrics and ambiguous active navigation."
+          ],
+          "acceptance": [
+            "Each core screen has one clear primary action and a concise explanation of any blocked state.",
+            "Role navigation labels match the actual product tasks."
+          ],
+          "verification": [
+            "Review desktop and 390 px mobile task flows with a designer and QA before implementation."
+          ],
+          "status": "In progress",
+          "id": "W04.01"
+        },
+        {
+          "number": "02",
+          "title": "Make question and wallet lists bounded",
+          "gate": "Pilot for question bank; commerce gate for wallet",
+          "dependencies": [
+            "W04.01"
+          ],
+          "work": [
+            "Default question bank to compact inventory with search, pagination and collapsed advanced filters.",
+            "Move licensing and entitlement explanations into contextual help and specific action blockers.",
+            "Paginate wallet orders/ledger; keep balance and the next useful action near the top."
+          ],
+          "acceptance": [
+            "Rendered history/list size stays bounded as records grow; all records remain reachable.",
+            "Filter/reset/pagination retain scope and do not silently change counts or selections."
+          ],
+          "verification": [
+            "Test empty, small and hundreds-of-record fixtures; capture desktop/mobile before-and-after measurements.",
+            "Have a teacher find and add a question without coaching."
+          ],
+          "status": "In progress",
+          "id": "W04.02"
+        },
+        {
+          "number": "03",
+          "title": "Shorten exam creation",
+          "gate": "Pilot",
+          "dependencies": [
+            "W04.01",
+            "W03.01"
+          ],
+          "work": [
+            "Use a recommended audience → questions → schedule → preview/publish path.",
+            "Offer a few pilot-appropriate presets and defer timing/security/economy details behind advanced settings.",
+            "Keep marks, question availability and publish blockers visible without repeated summary panels."
+          ],
+          "acceptance": [
+            "A teacher creates the pilot exam without navigating advanced commercial or runtime concepts.",
+            "Preview, saved configuration and student runtime remain equivalent."
+          ],
+          "verification": [
+            "Run standard and advanced creation regressions, validation errors and mobile form checks."
+          ],
+          "status": "In progress",
+          "id": "W04.03"
+        },
+        {
+          "number": "04",
+          "title": "Improve learner and signup activation",
+          "gate": "Pilot",
+          "dependencies": [
+            "W04.01",
+            "W07.01"
+          ],
+          "work": [
+            "Reduce mobile header height and place continue/assigned work ahead of diagnostic cards.",
+            "Bring role selection and signup form together; shorten explanatory content.",
+            "Use plain-language loading, empty, error, locked and pending states with a specific recovery action."
+          ],
+          "acceptance": [
+            "The main learner action or a truthful next step is visible in the first meaningful viewport.",
+            "Signup, profile completion and first assigned exam have a continuous understandable route."
+          ],
+          "verification": [
+            "Run first-use tasks with unfamiliar learners and capture blocked/error-state screenshots."
+          ],
+          "status": "In progress",
+          "id": "W04.04"
+        },
+        {
+          "number": "05",
+          "title": "Certify accessible responsive tasks",
+          "gate": "Pilot for critical tasks; broader release for full included surface",
+          "dependencies": [
+            "W04.02",
+            "W04.03",
+            "W04.04"
+          ],
+          "work": [
+            "Check keyboard order, visible focus, labels, error announcements, dialogs, screen reader basics, zoom and contrast.",
+            "Test critical exam/forms in Chromium, Firefox and WebKit plus target mobile browsers.",
+            "Check long names, equations, media and translations where offered."
+          ],
+          "acceptance": [
+            "Critical tasks have no unresolved accessibility or responsive blocker.",
+            "Mobile navigation and error recovery work without hidden/clipped controls."
+          ],
+          "verification": [
+            "Retain automated checks and manual keyboard/screen-reader/device evidence separately; no blanket WCAG claim from five keyboard tests."
+          ],
+          "status": "In progress",
+          "id": "W04.05"
+        }
+      ],
+      "execution_findings": [
+        {
+          "id": "W03-UI-01",
+          "finding": "Existing desktop student header controls overlap in the 1280x720 result receipt; verify responsive, keyboard and zoom layouts.",
+          "evidence": "../../qa/65-w03-objective-recovery-verification-20261021.md#visual-inspection"
+        }
+      ]
+    },
+    {
+      "id": "W05",
+      "slug": "05-content-and-shared-library",
+      "title": "Content and shared library",
+      "owner": "Academic lead",
+      "support": "Backend engineer, content reviewers and QA",
+      "effort": "3–6 engineering days plus curriculum review effort",
+      "depends": "D01 first customer segment and curriculum",
+      "audit": [
+        "CONTENT01",
+        "SHARE01"
+      ],
+      "outcome": "Every curriculum and question package offered at launch has complete, reviewed content and predictable access behavior.",
+      "paths": [
+        "edutech_backend/apps/academics/",
+        "edutech_backend/apps/question_bank/",
+        "edutech_backend/question_blueprints/",
+        "edutech_backend/apps/economy/",
+        "docs/content-question-bank/"
+      ],
+      "tasks": [
+        {
+          "number": "01",
+          "title": "Select the first content offer",
+          "gate": "Pilot",
+          "dependencies": [],
+          "work": [
+            "Choose one institute segment, class/program, subjects, language and supported assessment types.",
+            "List exact chapters/topics and exam bundles promised to pilot users.",
+            "Identify institute-owned versus platform-licensed content and its accountable reviewer."
+          ],
+          "acceptance": [
+            "A finite pilot inventory exists; unsupported curricula/families are absent from the offer.",
+            "Each offered topic has a minimum content quantity and review standard agreed by the academic lead."
+          ],
+          "verification": [
+            "Review the launch inventory with product, teachers and the academic owner."
+          ],
+          "status": "In progress",
+          "id": "W05.01"
+        },
+        {
+          "number": "02",
+          "title": "Approve curriculum completeness and quality",
+          "gate": "Pilot",
+          "dependencies": [
+            "W05.01"
+          ],
+          "work": [
+            "Run catalog/content audits on the intended release data rather than demo totals.",
+            "Review correctness, explanations, difficulty, duplicates, accessibility of media and curriculum mapping.",
+            "Resolve empty active topics; record content source/rights and review dates."
+          ],
+          "acceptance": [
+            "Every advertised topic meets the agreed inventory and editorial standards.",
+            "No known incorrect answer, unlicensed item or test placeholder remains in offered content."
+          ],
+          "verification": [
+            "Retain topic coverage report, reviewer signoff and sampled scoring/rendering checks."
+          ],
+          "status": "In progress",
+          "id": "W05.02"
+        },
+        {
+          "number": "03",
+          "title": "Separate customer content from test fixtures",
+          "gate": "Pilot",
+          "dependencies": [
+            "W05.02"
+          ],
+          "work": [
+            "Use explicit synthetic fixture identifiers and isolated QA tenants.",
+            "Prevent seeded QA names/questions/packages from appearing in customer discovery.",
+            "Provide dry-run inventory and exact fixture cleanup with ownership checks."
+          ],
+          "acceptance": [
+            "Customer catalogs contain only approved content.",
+            "Automated tests clean only their own records and verify residue rather than accepting best-effort archive as purge."
+          ],
+          "verification": [
+            "Compare pre/post catalog inventory and execute one disposable lifecycle cleanup."
+          ],
+          "status": "Complete",
+          "id": "W05.03"
+        },
+        {
+          "number": "04",
+          "title": "Certify shared content acquisition",
+          "gate": "Shared-library sales release",
+          "dependencies": [
+            "W02.03",
+            "W05.02"
+          ],
+          "work": [
+            "Run teacher request → institute/platform approval → local link → exam attach/publish.",
+            "Verify licensed copy edit restrictions and plain-language requested/approved/linked states.",
+            "Test duplicate requests, matching scope and entitlement expiry/revocation/quota exhaustion."
+          ],
+          "acceptance": [
+            "A valid institute can use the purchased package; an invalid one cannot bypass restrictions.",
+            "The treatment of already-published exams after expiry/revocation is explicit and regression-tested."
+          ],
+          "verification": [
+            "Execute direct API and populated browser package/entitlement tests with reconciliation of usage."
+          ],
+          "status": "Not started",
+          "id": "W05.04"
+        },
+        {
+          "number": "05",
+          "title": "Set content maintenance ownership",
+          "gate": "Pilot",
+          "dependencies": [
+            "W05.02"
+          ],
+          "work": [
+            "Define how teachers report incorrect questions and how reviewers resolve them.",
+            "Version corrections so existing attempt/result interpretation remains stable.",
+            "Set periodic content review and catalog expansion criteria."
+          ],
+          "acceptance": [
+            "A reported content defect has an owner and a traceable correction path.",
+            "Question edits do not silently change the meaning or score of past attempts."
+          ],
+          "verification": [
+            "Rehearse one synthetic content correction and inspect historical attempt/result behavior."
+          ],
+          "status": "Complete",
+          "id": "W05.05"
+        }
+      ]
+    },
+    {
+      "id": "W06",
+      "slug": "06-payments-and-entitlements",
+      "title": "Payments and entitlements",
+      "owner": "Backend engineer responsible for commerce",
+      "support": "Founder, web/mobile engineer, finance operations and QA",
+      "effort": "8–14 engineering days excluding provider onboarding",
+      "depends": "D06 commercial offer and provider; D07 native purchase model; W02 and W05 access/content contracts",
+      "audit": [
+        "PAY01",
+        "MKT02",
+        "SHARE01"
+      ],
+      "outcome": "A successful verified purchase grants the right access once, and failed, expired or refunded transactions are handled predictably.",
+      "paths": [
+        "edutech_backend/apps/economy/",
+        "edutech_web/src/app/api/",
+        "edutech_web/src/app/(student)/app/wallet/",
+        "edutech_web/src/app/(student)/app/subscriptions/",
+        "nexora_student_mobile/"
+      ],
+      "tasks": [
+        {
+          "number": "01",
+          "title": "Freeze the commercial contract",
+          "gate": "Pilot billing decision; complete commercial contract before paid launch",
+          "dependencies": [],
+          "work": [
+            "Choose institute invoicing versus direct student purchases and the first paid offer.",
+            "Define price/currency, tax/invoice responsibility, renewal, cancellation, refund and entitlement rules with accountable business owners.",
+            "Decide native app purchase/consumption behavior after reviewing current store/provider requirements; do not assume a web checkout link is permitted."
+          ],
+          "acceptance": [
+            "Each sales channel has a documented supported purchase path and entitlement owner.",
+            "Pilot manual settlement, if used, is explicit and does not masquerade as automated payment."
+          ],
+          "verification": [
+            "Review the commercial state diagram and sample purchase/refund records."
+          ],
+          "status": "Complete for pilot; paid offer deferred",
+          "id": "W06.01"
+        },
+        {
+          "number": "02",
+          "title": "Implement provider payment verification",
+          "gate": "Public paid launch",
+          "dependencies": [
+            "W06.01"
+          ],
+          "work": [
+            "Create provider orders on the server and use approved client checkout components.",
+            "Verify callback signatures, amounts, currency, order ownership and event replay/idempotency.",
+            "Keep provider secrets server-side and isolate sandbox from live configuration."
+          ],
+          "acceptance": [
+            "Only verified settlement can grant paid access.",
+            "Repeated callbacks and client retries do not create duplicate ledger credits or subscriptions."
+          ],
+          "verification": [
+            "Run signed/invalid/duplicate/out-of-order sandbox webhook and checkout cases."
+          ],
+          "status": "Not started",
+          "id": "W06.02"
+        },
+        {
+          "number": "03",
+          "title": "Make entitlement lifecycle consistent",
+          "gate": "Public paid launch",
+          "dependencies": [
+            "W06.02"
+          ],
+          "work": [
+            "Apply purchase activation, allowance consumption, renewal, expiry, cancellation and refund/revocation to the chosen policies.",
+            "Keep exam purchase eligibility separate from institute question-bank authoring rights.",
+            "Use the same authoritative decisions on student web and native clients."
+          ],
+          "acceptance": [
+            "The student sees the same current balance, subscription and exam access on all supported devices.",
+            "A locked or exhausted resource cannot be started via direct API."
+          ],
+          "verification": [
+            "Compare API/ledger/subscription state through purchase, use, expiry and reversal fixtures."
+          ],
+          "status": "Not started",
+          "id": "W06.03"
+        },
+        {
+          "number": "04",
+          "title": "Complete finance and support operations",
+          "gate": "Public paid launch",
+          "dependencies": [
+            "W06.03"
+          ],
+          "work": [
+            "Add reconciliation, order lookup, transaction audit, refund/cancellation handling and safe support tools.",
+            "Represent pending, failed, abandoned, disputed and refunded states truthfully.",
+            "Require audited operator action and prevent privilege escalation in manual adjustments."
+          ],
+          "acceptance": [
+            "Finance can reconcile provider transactions to internal records and explain discrepancies.",
+            "Support can resolve a purchase without duplicate grants or undocumented balance changes."
+          ],
+          "verification": [
+            "Rehearse failed settlement, late callback, refund and reconciliation mismatch in sandbox."
+          ],
+          "status": "Not started",
+          "id": "W06.04"
+        },
+        {
+          "number": "05",
+          "title": "Approve a controlled paid release",
+          "gate": "Public paid launch",
+          "dependencies": [
+            "W06.04",
+            "W07.03",
+            "W09.05"
+          ],
+          "work": [
+            "Execute the full purchase → unlock → exam → result path on the attested release.",
+            "Use an authorized controlled live transaction only after provider setup and business approval.",
+            "Verify receipts/support contacts and customer cancellation/refund guidance."
+          ],
+          "acceptance": [
+            "Provider and internal records agree; access is granted exactly once.",
+            "No unresolved critical payment or entitlement defect remains."
+          ],
+          "verification": [
+            "Retain redacted transaction/reconciliation evidence and finance signoff."
+          ],
+          "status": "Not started",
+          "id": "W06.05"
+        }
+      ]
+    },
+    {
+      "id": "W07",
+      "slug": "07-onboarding-and-customer-trust",
+      "title": "Onboarding and customer trust",
+      "owner": "Product owner and web engineer",
+      "support": "Backend engineer, founder and support/content owners",
+      "effort": "5–9 engineering days plus business review",
+      "depends": "D01 customer scope, D06 offer and W02 role/access contract",
+      "audit": [
+        "AUTH03",
+        "TRUST01",
+        "MKT01",
+        "MKT02",
+        "UX04"
+      ],
+      "outcome": "Customers understand the offer, can enter and recover their account, and have clear support/privacy procedures.",
+      "paths": [
+        "edutech_web/src/components/auth/",
+        "edutech_web/src/lib/site-content.ts",
+        "edutech_web/src/app/(marketing)/",
+        "edutech_backend/apps/accounts/",
+        "nexora_student_mobile/app/(auth)/"
+      ],
+      "tasks": [
+        {
+          "number": "01",
+          "title": "Complete role onboarding and first use",
+          "gate": "Pilot",
+          "dependencies": [
+            "W02.01"
+          ],
+          "work": [
+            "Define assisted institute provisioning plus public student/teacher/parent web onboarding where included.",
+            "Route accounts to the correct profile-completion and first-use task.",
+            "On native apps accept student accounts only; give other roles a clear web destination without exposing their protected data."
+          ],
+          "acceptance": [
+            "An incomplete profile cannot strand a user or route them into another role.",
+            "A newly provisioned pilot student can reach their first assigned exam."
+          ],
+          "verification": [
+            "Run fresh-account onboarding and invalid/incomplete-role cases on web; native cases join W08.03."
+          ],
+          "status": "Complete",
+          "id": "W07.01"
+        },
+        {
+          "number": "02",
+          "title": "Add account recovery",
+          "gate": "Public self-serve; assisted fallback acceptable for pilot",
+          "dependencies": [
+            "W07.01"
+          ],
+          "work": [
+            "Implement secure time-limited, single-use password reset with neutral account-existence messaging and rate limits.",
+            "Handle delivery failure, expiry, reuse and session invalidation consistently.",
+            "Document a verified support recovery fallback for pilot users."
+          ],
+          "acceptance": [
+            "A legitimate user can recover access; an attacker cannot enumerate or take over accounts via recovery.",
+            "Recovery behavior is consistent across student web and native entry points."
+          ],
+          "verification": [
+            "Test expired/replayed tokens, wrong identity, throttling, provider delivery failure and post-reset sessions."
+          ],
+          "status": "Complete",
+          "id": "W07.02"
+        },
+        {
+          "number": "03",
+          "title": "Publish customer policies and support routes",
+          "gate": "Pilot",
+          "dependencies": [
+            "W07.01",
+            "W06.01"
+          ],
+          "work": [
+            "Create usable privacy/terms/support destinations and link them from signup, footer and native settings.",
+            "Assign owners for child/guardian handling, data export/deletion, retention, complaints and payment terms appropriate to the launch.",
+            "Define student deletion versus institute academic record retention with the responsible business/legal reviewers."
+          ],
+          "acceptance": [
+            "Policy and support links resolve; the named procedures have an accountable operator.",
+            "Requests can be fulfilled without unauthorized data exposure or inconsistent deletion claims."
+          ],
+          "verification": [
+            "Check routes and mobile links; rehearse synthetic export/deletion/support requests."
+          ],
+          "status": "Complete for pilot",
+          "id": "W07.03"
+        },
+        {
+          "number": "04",
+          "title": "Replace internal marketing content",
+          "gate": "Public acquisition",
+          "dependencies": [
+            "W05.01",
+            "W06.01"
+          ],
+          "work": [
+            "Replace design commentary and generic positioning with actual first-segment outcomes and supported workflows.",
+            "Substantiate or remove user counts, satisfaction percentages and testimonials.",
+            "Provide a concrete institute contact/demo journey or supported student checkout; do not label an undefined offer a free trial."
+          ],
+          "acceptance": [
+            "Every visible claim has supporting business evidence or is removed.",
+            "Primary calls to action reach a working, appropriately scoped destination."
+          ],
+          "verification": [
+            "Review landing, pricing, resources, contact and signup on desktop/mobile; test every primary conversion link."
+          ],
+          "status": "Not started",
+          "id": "W07.04"
+        },
+        {
+          "number": "05",
+          "title": "Measure activation and support friction",
+          "gate": "Pilot",
+          "dependencies": [
+            "W07.01",
+            "W07.03",
+            "W04.04"
+          ],
+          "work": [
+            "Instrument minimal privacy-reviewed events for signup/profile completion, first assigned exam, start, save failure, submit and support request. [Complete]",
+            "Use role/platform and release identity to distinguish web, Android and iOS failures without collecting answer text or credentials. [Complete]",
+            "Prepare an activation/support dashboard and a weekly owner review. [Complete]",
+            "Observe unfamiliar pilot users completing teacher question find/add, student wallet-history and learner signup/first-action tasks without coaching; record time, errors and abandonment points. [Pending]"
+          ],
+          "acceptance": [
+            "The team can identify where pilot users stop and which failures affect assessment completion.",
+            "Event collection respects the published data practices."
+          ],
+          "verification": [
+            "Run a synthetic journey and reconcile expected events; inspect payloads for sensitive fields. [Complete]",
+            "Run the W07 unfamiliar-user observation and attach reviewed session results. [Pending]"
+          ],
+          "status": "Ready for human observation",
+          "id": "W07.05"
+        }
+      ]
+    },
+    {
+      "id": "W08",
+      "slug": "08-student-android-and-ios",
+      "title": "Student Android and iOS",
+      "owner": "Mobile engineer",
+      "support": "Backend engineer, device QA, designer and product owner",
+      "effort": "10–18 engineering days plus account and store review lead time",
+      "depends": "Student-only scope fixed; W03 runtime, W07 onboarding/policies, W01 HTTPS, W09 release QA and D07 purchase model",
+      "audit": [
+        "MOBILE01",
+        "RELIABILITY01",
+        "A11Y01",
+        "UX04"
+      ],
+      "outcome": "Signed Android and iOS student apps safely complete the same assessment and learning journey as student web.",
+      "paths": [
+        "nexora_student_mobile/app/",
+        "nexora_student_mobile/src/",
+        "nexora_student_mobile/app.json",
+        "nexora_student_mobile/eas.json",
+        "nexora_student_mobile/plugins/",
+        "nexora_student_mobile/.maestro/"
+      ],
+      "tasks": [
+        {
+          "number": "01",
+          "title": "Establish app identities and distribution",
+          "gate": "Student app beta",
+          "dependencies": [],
+          "work": [
+            "Assign approved student-app name, Android package, iOS bundle identifier and owned developer accounts.",
+            "Use existing authorized signing identities or provision them through the account owner; keep credentials out of source/evidence.",
+            "Set isolated preview/production HTTPS configuration and verify release policy checks and build provenance."
+          ],
+          "acceptance": [
+            "Placeholder identities are gone from distributable builds.",
+            "Android/iOS builds are signed for the intended distribution channel and target the attested HTTPS API."
+          ],
+          "verification": [
+            "Inspect release metadata, signing and embedded endpoints without printing secrets; install both beta builds."
+          ],
+          "status": "Blocked on identities, owned accounts and authorized signing",
+          "id": "W08.01"
+        },
+        {
+          "number": "02",
+          "title": "Simplify the student app experience",
+          "gate": "Student app beta",
+          "dependencies": [
+            "W08.01",
+            "W04.01"
+          ],
+          "work": [
+            "Prioritize dashboard/assigned exams, attempts, results/review, practice/weak areas, profile and help.",
+            "Keep wallet/subscriptions visible only when the channel purchase/consumption model is ready; include enabled notifications access/preferences.",
+            "Handle long lists, small screens, font scaling, equations/media and error states; include no admin, institute, teacher or parent workspace."
+          ],
+          "acceptance": [
+            "Core student tasks remain reachable without large introductory blocks or unbounded histories.",
+            "Unsupported role login cannot expose a native privileged workspace."
+          ],
+          "verification": [
+            "Review small Android/iPhone screens, accessibility scaling, non-student sessions and seeded large histories."
+          ],
+          "status": "In progress; core routes exist, device/accessibility matrix open",
+          "id": "W08.02"
+        },
+        {
+          "number": "03",
+          "title": "Prove the signed exam and recovery journey",
+          "gate": "Student app beta",
+          "dependencies": [
+            "W08.01",
+            "W03.03",
+            "W07.01"
+          ],
+          "work": [
+            "Run fresh student login/onboarding, exam discovery/detail/eligibility, start, answer saves, submit, results and review on signed Android and iOS builds.",
+            "During an actual in-progress attempt test background/foreground, kill/relaunch, token expiry, network loss, low-memory restart and interrupted submission.",
+            "Test timing, resume, accessibility accommodations and supported question/media types."
+          ],
+          "acceptance": [
+            "Acknowledged answers survive restart; server time and access policies remain authoritative.",
+            "A real active attempt is tested; an empty Attempts screen is not accepted as runtime proof."
+          ],
+          "verification": [
+            "Retain real-device/emulator/simulator matrices with OS/build/API identities, saved-answer assertions and duplicate-submit checks."
+          ],
+          "status": "In progress; local builds and reliability fixes passed, signed journey open",
+          "id": "W08.03"
+        },
+        {
+          "number": "04",
+          "title": "Complete native security and service behavior",
+          "gate": "Student app release",
+          "dependencies": [
+            "W08.03",
+            "W07.03"
+          ],
+          "work": [
+            "Verify secure token storage, logout/session revocation, protected media, screenshot/log privacy and deep-link authorization.",
+            "If push is included, handle permission denial, expired token, logout token removal, child-safe message content and deep links.",
+            "Verify account recovery/deletion/help links and app purchase behavior according to D07 and current channel rules."
+          ],
+          "acceptance": [
+            "No token, credential or sensitive learner payload leaks through app-owned logs or notification text.",
+            "Notifications/deep links never bypass login, learner ownership or result publication rules."
+          ],
+          "verification": [
+            "Run direct API ownership probes plus signed-device session/deep-link/permission tests."
+          ],
+          "status": "In progress; secure storage/configuration inspected, signed-device probes open",
+          "id": "W08.04"
+        },
+        {
+          "number": "05",
+          "title": "Prepare store submissions and student beta",
+          "gate": "Student app release",
+          "dependencies": [
+            "W08.04",
+            "W09.05",
+            "W10.03"
+          ],
+          "work": [
+            "Prepare store descriptions/screenshots, support URLs, privacy/data declarations, age/content ratings and review access matching actual behavior.",
+            "Use internal/beta distribution for both platforms; monitor crashes, failed saves and student completion.",
+            "Prepare upgrade compatibility and a rollback/disable strategy for unsafe app/API combinations."
+          ],
+          "acceptance": [
+            "Both platforms complete beta acceptance without unresolved critical runtime defects.",
+            "Store submission materials match the student-only app and its purchase/data behavior."
+          ],
+          "verification": [
+            "Complete signed Android/iOS release checklist; retain device results and beta cohort feedback. Store approval timing remains external."
+          ],
+          "status": "Not started",
+          "id": "W08.05"
+        }
+      ]
+    },
+    {
+      "id": "W09",
+      "slug": "09-reliability-and-release-qa",
+      "title": "Reliability and release QA",
+      "owner": "QA lead and release engineer",
+      "support": "Backend, web and mobile engineers",
+      "effort": "6–10 engineering days plus QA execution",
+      "depends": "W01 candidate identity and included W02–W08 capabilities",
+      "audit": [
+        "PERF01",
+        "RELIABILITY01",
+        "A11Y01",
+        "REL03",
+        "OPS01"
+      ],
+      "outcome": "Every shipped promise has current test evidence, measured operating limits and a demonstrated recovery path.",
+      "paths": [
+        "edutech_web/tests/e2e/",
+        "edutech_backend/apps/",
+        "performance/k6/",
+        "deployment/",
+        "nexora_student_mobile/.maestro/",
+        "docs/qa/"
+      ],
+      "tasks": [
+        {
+          "number": "01",
+          "title": "Freeze the release test matrix",
+          "gate": "Pilot",
+          "dependencies": [],
+          "work": [
+            "Map each included role journey and audit finding to a test or manual acceptance check.",
+            "Separate current pass/fail, deferred feature, unverified coverage and intermittent cases.",
+            "Bind evidence to release SHA/environment/device; keep browser/API/database and human UAT claims distinct."
+          ],
+          "acceptance": [
+            "The launch checklist has no ambiguous green result based only on source/test existence.",
+            "Every included high-risk behavior has an owner and verification path."
+          ],
+          "verification": [
+            "Review matrix completeness against W01–W10 and the 26 audit findings."
+          ],
+          "status": "Complete for objective-exam web pilot",
+          "id": "W09.01"
+        },
+        {
+          "number": "02",
+          "title": "Validate long sessions and outages",
+          "gate": "Pilot",
+          "dependencies": [
+            "W03.03",
+            "W01.03"
+          ],
+          "work": [
+            "Run full-duration exam sessions through refresh expiry, client reload, API interruption and delayed/retried saves/submits.",
+            "Verify scheduled processing and timed expiry under the actual runtime topology.",
+            "Test grace/late-submit behavior, randomization continuity and accommodations for included policies."
+          ],
+          "acceptance": [
+            "No acknowledged answer is lost and no retry changes final score or access consumption incorrectly.",
+            "Failure/recovery messages tell users what happened and what to do."
+          ],
+          "verification": [
+            "Use deterministic answer fixtures and compare persisted state before/after each interruption."
+          ],
+          "status": "In progress; Docker recovery passed, stage duration pending",
+          "id": "W09.02",
+          "local_findings": [
+            "W02-RUNTIME-01",
+            "W02-RUNTIME-02"
+          ]
+        },
+        {
+          "number": "03",
+          "title": "Measure capacity for the sold cohort",
+          "gate": "Pilot",
+          "dependencies": [
+            "W01.03",
+            "W03.01"
+          ],
+          "work": [
+            "Product/operations agree expected concurrent students, start burst, save cadence, duration and submit burst.",
+            "Use representative data, production-like services and isolated synthetic load; observe database, queues/workers if present and application latency.",
+            "Proposed starting acceptance: p95 start/save/submit under 2 seconds, under 1 percent unexpected request errors, zero lost acknowledged answers or incorrect results, with a 1.5× target-cohort headroom run. Confirm these targets before testing."
+          ],
+          "acceptance": [
+            "A measured capacity envelope and cost/scale limit support the promised cohort.",
+            "If targets fail, tune and rerun or reduce admitted cohort; do not extrapolate from localhost timings."
+          ],
+          "verification": [
+            "Retain workload, infrastructure, latency/error distributions and data-integrity results."
+          ],
+          "status": "Ready for authorized stage confirmation",
+          "id": "W09.03"
+        },
+        {
+          "number": "04",
+          "title": "Prove backup restore and incident response",
+          "gate": "Pilot",
+          "dependencies": [
+            "W01.02"
+          ],
+          "work": [
+            "Restore the database and relevant media into an isolated environment; verify secrets are not copied into artifacts.",
+            "Agree recovery point/time targets and rehearse data recovery and an application rollback.",
+            "Wire observable exam/save/payment failures and service health to a reachable owner with an escalation runbook."
+          ],
+          "acceptance": [
+            "Recovery meets the agreed targets and restored exams/results remain consistent.",
+            "A synthetic incident triggers an actionable alert and reaches the designated responder."
+          ],
+          "verification": [
+            "Record restore/rollback timings, checksums where appropriate, incident timeline and final health checks."
+          ],
+          "status": "Ready for stage responder configuration",
+          "id": "W09.04"
+        },
+        {
+          "number": "05",
+          "title": "Run final candidate regression",
+          "gate": "Each release gate",
+          "dependencies": [
+            "W01.04",
+            "W02.05",
+            "W09.02",
+            "W09.03",
+            "W09.04"
+          ],
+          "work": [
+            "Run core backend and browser packs plus included cross-browser/accessibility and native packs.",
+            "Add commerce/shared-library/descriptive cases only when those features enter the offer; disable deferred routes/actions.",
+            "Triage critical, high and cosmetic defects with explicit owners; rerun affected tests after fixes."
+          ],
+          "acceptance": [
+            "Zero unresolved critical defects or high defects affecting assessment correctness, access/privacy, paid grants or required accessibility.",
+            "Go/no-go records exact artifact identity, exclusions, capacity and recovery evidence."
+          ],
+          "verification": [
+            "Publish a release summary with failure evidence and exclusions; a rerun pass does not erase unresolved intermittent failures."
+          ],
+          "status": "In progress; local candidate checkpoint passed",
+          "id": "W09.05"
+        }
+      ]
+    },
+    {
+      "id": "W10",
+      "slug": "10-pilot-and-market-rollout",
+      "title": "Pilot and market rollout",
+      "owner": "Founder or product owner",
+      "support": "Customer success, academic lead, QA and engineering lead",
+      "effort": "2–4 engineering support days plus two real assessment cycles",
+      "depends": "Pilot gates across W01–W05, W07 and W09",
+      "audit": [
+        "UAT01",
+        "OPS01",
+        "MKT02"
+      ],
+      "outcome": "A small group of real institutes can operate the product successfully before sales, content and student-app scope expands.",
+      "paths": [
+        "docs/qa/",
+        "docs/user-manual/",
+        "docs/qa-runbooks/",
+        "docs/implementation-plans/go-to-market-2026-10/"
+      ],
+      "tasks": [
+        {
+          "number": "01",
+          "title": "Choose design partners and pilot promises",
+          "gate": "Pilot",
+          "dependencies": [],
+          "work": [
+            "Proposed initial cohort: 2–3 institutes, one curriculum, objective exams and assisted onboarding. Confirm actual learner numbers/capacity in W09.03.",
+            "Agree pilot duration, contact, content ownership, support availability and known feature exclusions.",
+            "Provide a concise onboarding checklist for institute admins, teachers and students."
+          ],
+          "acceptance": [
+            "Each pilot partner understands included features, limits and support channel.",
+            "Pilot setup does not promise public marketplace, automated payments or native roles that are outside scope."
+          ],
+          "verification": [
+            "Review the offer and task checklist with each designated institute contact."
+          ],
+          "status": "Not started",
+          "id": "W10.01"
+        },
+        {
+          "number": "02",
+          "title": "Run unfamiliar-user acceptance",
+          "gate": "Pilot",
+          "dependencies": [
+            "W04.05",
+            "W05.02",
+            "W07.01"
+          ],
+          "work": [
+            "Observe new admins import a roster and assign a teacher, teachers create/publish an exam, and students start/submit/review it.",
+            "Include parent linking/visibility only if parent is part of the pilot offer.",
+            "Record completion time, help requests, failed actions and misunderstood labels; fix the highest-impact friction."
+          ],
+          "acceptance": [
+            "All required tasks can be completed; no critical access, scoring or answer-loss issue remains.",
+            "Proposed activation target: at least 80 percent of first-time participants complete their assigned core task without facilitator intervention. Confirm participant mix/sample size before interpreting the result."
+          ],
+          "verification": [
+            "Retain anonymized task results and route-specific fixes rather than a general satisfaction score."
+          ],
+          "status": "Not started",
+          "id": "W10.02"
+        },
+        {
+          "number": "03",
+          "title": "Approve and run the web pilot",
+          "gate": "Pilot",
+          "dependencies": [
+            "W01.05",
+            "W02.05",
+            "W03.05",
+            "W04.05",
+            "W05.05",
+            "W07.03",
+            "W07.05",
+            "W09.05",
+            "W10.02"
+          ],
+          "work": [
+            "Approve the exact candidate, capacity cap, support roster and recovery plan.",
+            "Run two real assessment cycles and review activation, completion, failed saves, content defects and support burden.",
+            "Pause enrollment and apply the incident runbook if correctness, access/privacy or saved-answer safety fails."
+          ],
+          "acceptance": [
+            "Two cycles complete with zero unresolved critical incidents and reconciled scores/results.",
+            "Proposed completion target: at least 95 percent of started attempts reach a valid final state; investigate every technical non-completion. Confirm the target against pilot context."
+          ],
+          "verification": [
+            "Review event/API/database evidence and institute feedback after each cycle."
+          ],
+          "status": "Not started",
+          "id": "W10.03"
+        },
+        {
+          "number": "04",
+          "title": "Expand to paid web and student app betas",
+          "gate": "Public web and student beta",
+          "dependencies": [
+            "W10.03"
+          ],
+          "work": [
+            "Offer paid self-serve web only after the relevant payment, public-eligibility and support gates pass.",
+            "Admit student Android/iOS beta users after W08.03; teacher/institute/admin/parent roles stay on web.",
+            "Expand one curriculum/cohort at a time within the measured capacity envelope.",
+            "Require W06.05 for paid checkout, W02.04 for cross-institute public exams, W05.04 for shared-package sales and W08.03 for student app beta; these gates apply only to the channel or feature being added."
+          ],
+          "acceptance": [
+            "Every new sales/channel promise has an owner and current evidence.",
+            "Student apps can use the approved access model without requiring native operator workflows."
+          ],
+          "verification": [
+            "Run channel-specific go/no-go reviews and cohort metrics; do not bundle mobile store approval into web readiness."
+          ],
+          "status": "Not started",
+          "id": "W10.04"
+        },
+        {
+          "number": "05",
+          "title": "Operate a continuing release process",
+          "gate": "After pilot",
+          "dependencies": [
+            "W10.03"
+          ],
+          "work": [
+            "Review incidents, support demand, conversion/activation, content quality and release regressions weekly.",
+            "Schedule small releases with candidate identity, targeted regression and rollback readiness.",
+            "Reassess broader question types, analytics, curricula and parent capabilities using explicit gates."
+          ],
+          "acceptance": [
+            "The next release has a bounded scope, owner, regression evidence and operational handoff.",
+            "Customer feedback changes priorities without silently changing contracts or expanding mobile beyond students."
+          ],
+          "verification": [
+            "Maintain one current release board and supersede dated readiness claims when evidence changes."
+          ],
+          "status": "Not started",
+          "id": "W10.05"
+        }
+      ]
+    }
+  ],
+  "reliability_followup": {
+    "candidate": "581ed8f04565f080dfe3f82c966b8171ccdd5c87",
+    "evidence": "../../qa/66-w03-reliability-and-header-verification-20261021.md",
+    "scope": "Objective web assessment; Android/iOS student-only; longer pilot sessions, curriculum and native certification pending"
+  },
+  "ux_followup": {
+    "web_candidate": "277b4388a199d74b2a0e2d77a0ded07104d33e9d",
+    "test_revision": "8e59664",
+    "evidence": "../../qa/68-w04-mobile-first-viewport-verification-20261021.md",
+    "scope": "Focused mobile first-viewport task priority and shared wizard; full W04 certification pending"
+  }
+}

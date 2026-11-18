@@ -529,7 +529,7 @@ negative_marks: 0.25
 archetype: compare_and_classify
 
 Question Text:
-Which pair is correctly matched?
+Which heat-transfer mode and medium pair is correctly matched?
 
 Explanation:
 Conduction mainly occurs in solids, while convection mainly occurs in fluids such as liquids and gases.

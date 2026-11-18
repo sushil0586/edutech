@@ -18,7 +18,7 @@ export async function fetchStudentDashboardBundle(accessToken: string) {
     requestJson<StudentInsightSummary>("/api/v1/student/insights/summary/", undefined, accessToken),
     requestJson<StudentAvailableExam[]>("/api/v1/student/exams/available/", undefined, accessToken),
     requestJson<StudentWalletSummary>("/api/v1/economy/wallet/", undefined, accessToken),
-    requestJson<StudentAttemptListItem[]>("/api/v1/student/attempts/", undefined, accessToken),
+    requestJson<StudentAttemptListItem[]>("/api/v1/student/attempts/?compact=true", undefined, accessToken),
   ]);
 
   return { summary, exams, wallet, attempts };

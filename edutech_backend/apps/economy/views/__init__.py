@@ -1,13 +1,19 @@
 import csv
 from collections import defaultdict
 
+from django.conf import settings
 from django.db import models
 from django.http import HttpResponse
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema
+from rest_framework import serializers
 from rest_framework import status
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from common.pagination import StandardResultsSetPagination
 
 from apps.accounts.permissions import CanBuildExams, CanManageQuestionBank, IsPlatformAdmin, IsPlatformOrInstituteAdmin, IsStudent
 from apps.accounts.scopes import (
@@ -125,6 +131,14 @@ ECONOMY_CATALOG_MODEL_MAP = {
     "star_pack": StarPack,
     "subscription_plan": SubscriptionPlan,
 }
+
+
+class EconomySchemaFallbackSerializer(serializers.Serializer):
+    """Fallback schema hook for APIViews with action-specific response payloads."""
+
+
+class EconomyAPIView(APIView):
+    serializer_class = EconomySchemaFallbackSerializer
 
 
 def _serialize_economy_catalog_item(item_type, obj):
@@ -708,7 +722,7 @@ def _question_bank_package_report_csv_response(*, rows):
     return response
 
 
-class StudentWalletView(APIView):
+class StudentWalletView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsStudent]
 
     def get(self, request):
@@ -720,7 +734,7 @@ class StudentWalletView(APIView):
         )
 
 
-class StudentLedgerView(APIView):
+class StudentLedgerView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsStudent]
 
     def get(self, request):
@@ -732,10 +746,14 @@ class StudentLedgerView(APIView):
             .filter(is_active=True)
             .order_by("-effective_at", "-created_at")
         )
+        if "page" in request.query_params or "page_size" in request.query_params:
+            paginator = StandardResultsSetPagination()
+            page = paginator.paginate_queryset(queryset, request, view=self)
+            return paginator.get_paginated_response(StarLedgerSerializer(page, many=True).data)
         return Response(StarLedgerSerializer(queryset, many=True).data, status=status.HTTP_200_OK)
 
 
-class StudentRewardEventListView(APIView):
+class StudentRewardEventListView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsStudent]
 
     def get(self, request):
@@ -758,7 +776,7 @@ class StudentRewardEventListView(APIView):
         )
 
 
-class StudentUnlockStateListView(APIView):
+class StudentUnlockStateListView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsStudent]
 
     def get(self, request):
@@ -776,7 +794,7 @@ class StudentUnlockStateListView(APIView):
         )
 
 
-class StudentStarPackListView(APIView):
+class StudentStarPackListView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsStudent]
 
     def get(self, request):
@@ -785,7 +803,7 @@ class StudentStarPackListView(APIView):
         return Response(StarPackSerializer(queryset, many=True).data, status=status.HTTP_200_OK)
 
 
-class StudentSubscriptionPlanListView(APIView):
+class StudentSubscriptionPlanListView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsStudent]
 
     def get(self, request):
@@ -797,19 +815,25 @@ class StudentSubscriptionPlanListView(APIView):
         )
 
 
-class StudentPaymentOrderListView(APIView):
+class StudentPaymentOrderListView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsStudent]
 
     def get(self, request):
         student = request.user.account_profile.student_profile
         queryset = list_student_payment_orders(student=student)
+        if "page" in request.query_params or "page_size" in request.query_params:
+            paginator = StandardResultsSetPagination()
+            page = paginator.paginate_queryset(queryset, request, view=self)
+            response = paginator.get_paginated_response(PaymentOrderSerializer(page, many=True).data)
+            response.data["pending_count"] = queryset.filter(status__in=["pending", "processing"]).count()
+            return response
         return Response(
             PaymentOrderSerializer(queryset, many=True).data,
             status=status.HTTP_200_OK,
         )
 
 
-class StudentSubscriptionListView(APIView):
+class StudentSubscriptionListView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsStudent]
 
     def get(self, request):
@@ -821,10 +845,14 @@ class StudentSubscriptionListView(APIView):
         )
 
 
-class StudentCreateStarPackOrderView(APIView):
+class StudentCreateStarPackOrderView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsStudent]
 
     def post(self, request):
+        if not settings.STUDENT_SELF_SERVICE_PURCHASES_ENABLED:
+            raise PermissionDenied(
+                "Student purchases are unavailable during the assisted institute pilot."
+            )
         serializer = CreateStarPackOrderSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -843,10 +871,14 @@ class StudentCreateStarPackOrderView(APIView):
         )
 
 
-class StudentCreateSubscriptionOrderView(APIView):
+class StudentCreateSubscriptionOrderView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsStudent]
 
     def post(self, request):
+        if not settings.STUDENT_SELF_SERVICE_PURCHASES_ENABLED:
+            raise PermissionDenied(
+                "Student purchases are unavailable during the assisted institute pilot."
+            )
         serializer = CreateSubscriptionOrderSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -865,7 +897,7 @@ class StudentCreateSubscriptionOrderView(APIView):
         )
 
 
-class StudentSpendStarsView(APIView):
+class StudentSpendStarsView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsStudent]
 
     def post(self, request):
@@ -897,7 +929,7 @@ class StudentSpendStarsView(APIView):
         )
 
 
-class AdminGrantStarsView(APIView):
+class AdminGrantStarsView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformOrInstituteAdmin]
 
     def post(self, request):
@@ -934,14 +966,14 @@ class AdminGrantStarsView(APIView):
         )
 
 
-class AdminEconomyPolicyView(APIView):
+class AdminEconomyPolicyView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformOrInstituteAdmin]
 
     def get(self, request):
         return Response(get_economy_operator_policy(user=request.user), status=status.HTTP_200_OK)
 
 
-class AdminEconomyPolicyConfigView(APIView):
+class AdminEconomyPolicyConfigView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
 
     def get(self, request):
@@ -959,6 +991,10 @@ class AdminEconomyPolicyConfigView(APIView):
             "institute_admin_confirm_order_currency": config_object.institute_admin_confirm_order_currency,
             "institute_admin_can_grant_stars": config_object.institute_admin_can_grant_stars,
             "institute_admin_max_grant_stars": config_object.institute_admin_max_grant_stars,
+            "platform_catalog_governance_scope": config_object.platform_catalog_governance_scope,
+            "institute_catalog_governance_scope": config_object.institute_catalog_governance_scope,
+            "platform_support_scope": config_object.platform_support_scope,
+            "institute_support_scope": config_object.institute_support_scope,
         }
         serializer = EconomyOperatorPolicyConfigSerializer(
             config_object,
@@ -991,7 +1027,7 @@ class AdminEconomyPolicyConfigView(APIView):
         )
 
 
-class AdminEconomyPolicyAuditListView(APIView):
+class AdminEconomyPolicyAuditListView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
 
     def get(self, request):
@@ -1011,7 +1047,7 @@ class AdminEconomyPolicyAuditListView(APIView):
         )
 
 
-class AdminEconomyCatalogOverviewView(APIView):
+class AdminEconomyCatalogOverviewView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
 
     def get(self, request):
@@ -1057,7 +1093,7 @@ class AdminEconomyCatalogOverviewView(APIView):
         )
 
 
-class AdminEconomyCatalogItemStatusView(APIView):
+class AdminEconomyCatalogItemStatusView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
 
     def patch(self, request, item_type, item_id):
@@ -1102,9 +1138,10 @@ class AdminEconomyCatalogItemStatusView(APIView):
         )
 
 
-class AdminQuestionBankPackageListView(APIView):
+class AdminQuestionBankPackageListView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
 
+    @extend_schema(operation_id="v1_economy_admin_question_bank_packages_list")
     def get(self, request):
         compact = str(request.query_params.get("compact", "")).lower() in {"1", "true", "yes"}
         queryset = QuestionBankPackage.objects.select_related("institute").prefetch_related(
@@ -1163,9 +1200,10 @@ class AdminQuestionBankPackageListView(APIView):
         )
 
 
-class AdminQuestionBankPackageDetailView(APIView):
+class AdminQuestionBankPackageDetailView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
 
+    @extend_schema(operation_id="v1_economy_admin_question_bank_packages_detail")
     def get(self, request, package_id):
         instance = get_scoped_object_or_403(
             QuestionBankPackage.objects.select_related("institute").prefetch_related(
@@ -1257,9 +1295,10 @@ class AdminQuestionBankPackageDetailView(APIView):
         )
 
 
-class AdminInstituteQuestionEntitlementListView(APIView):
+class AdminInstituteQuestionEntitlementListView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
 
+    @extend_schema(operation_id="v1_economy_admin_question_bank_entitlements_list")
     def get(self, request):
         queryset = (
             InstituteQuestionEntitlement.objects.select_related(
@@ -1290,9 +1329,10 @@ class AdminInstituteQuestionEntitlementListView(APIView):
         )
 
 
-class AdminInstituteQuestionEntitlementDetailView(APIView):
+class AdminInstituteQuestionEntitlementDetailView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
 
+    @extend_schema(operation_id="v1_economy_admin_question_bank_entitlements_detail")
     def get(self, request, entitlement_id):
         instance = get_scoped_object_or_403(
             InstituteQuestionEntitlement.objects.select_related(
@@ -1420,7 +1460,7 @@ class AdminInstituteQuestionEntitlementDetailView(APIView):
         )
 
 
-class AdminInstituteQuestionFeatureEntitlementListView(APIView):
+class AdminInstituteQuestionFeatureEntitlementListView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
 
     def get(self, request):
@@ -1482,7 +1522,7 @@ class AdminInstituteQuestionFeatureEntitlementListView(APIView):
         )
 
 
-class AdminInstituteQuestionFeatureEntitlementDetailView(APIView):
+class AdminInstituteQuestionFeatureEntitlementDetailView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
 
     def patch(self, request, entitlement_id):
@@ -1534,7 +1574,7 @@ class AdminInstituteQuestionFeatureEntitlementDetailView(APIView):
         )
 
 
-class AdminInstituteQuestionUsageLedgerListView(APIView):
+class AdminInstituteQuestionUsageLedgerListView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
 
     def get(self, request):
@@ -1568,7 +1608,7 @@ class AdminInstituteQuestionUsageLedgerListView(APIView):
         )
 
 
-class AdminQuestionBankPackageReportView(APIView):
+class AdminQuestionBankPackageReportView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
 
     def get(self, request):
@@ -1623,7 +1663,7 @@ class AdminQuestionBankPackageReportView(APIView):
         return Response(rows, status=status.HTTP_200_OK)
 
 
-class InstituteScopedQuestionBankEntitlementListView(APIView):
+class InstituteScopedQuestionBankEntitlementListView(EconomyAPIView):
     permission_classes = [IsAuthenticated, CanManageQuestionBank]
 
     def get(self, request):
@@ -1649,7 +1689,7 @@ class InstituteScopedQuestionBankEntitlementListView(APIView):
         )
 
 
-class InstituteScopedQuestionBankUsageLedgerListView(APIView):
+class InstituteScopedQuestionBankUsageLedgerListView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformOrInstituteAdmin]
 
     def get(self, request):
@@ -1680,7 +1720,7 @@ class InstituteScopedQuestionBankUsageLedgerListView(APIView):
         )
 
 
-class InstituteScopedQuestionBankFeatureEntitlementListView(APIView):
+class InstituteScopedQuestionBankFeatureEntitlementListView(EconomyAPIView):
     permission_classes = [IsAuthenticated, CanBuildExams]
 
     def get(self, request):
@@ -1698,7 +1738,7 @@ class InstituteScopedQuestionBankFeatureEntitlementListView(APIView):
         )
 
 
-class AdminStarPackListCreateView(APIView):
+class AdminStarPackListCreateView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
 
     def get(self, request):
@@ -1739,7 +1779,7 @@ class AdminStarPackListCreateView(APIView):
         )
 
 
-class AdminStarPackDetailView(APIView):
+class AdminStarPackDetailView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
 
     def patch(self, request, star_pack_id):
@@ -1786,7 +1826,7 @@ class AdminStarPackDetailView(APIView):
         )
 
 
-class AdminSubscriptionPlanListCreateView(APIView):
+class AdminSubscriptionPlanListCreateView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
 
     def get(self, request):
@@ -1833,7 +1873,7 @@ class AdminSubscriptionPlanListCreateView(APIView):
         )
 
 
-class AdminSubscriptionPlanDetailView(APIView):
+class AdminSubscriptionPlanDetailView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
 
     def patch(self, request, plan_id):
@@ -1896,7 +1936,7 @@ class AdminSubscriptionPlanDetailView(APIView):
         )
 
 
-class AdminSubscriptionPlanApplyToInstituteView(APIView):
+class AdminSubscriptionPlanApplyToInstituteView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
 
     def post(self, request, plan_id):
@@ -1953,7 +1993,7 @@ class AdminSubscriptionPlanApplyToInstituteView(APIView):
         )
 
 
-class InstituteRequestableSubscriptionPlanListView(APIView):
+class InstituteRequestableSubscriptionPlanListView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformOrInstituteAdmin]
 
     def get(self, request):
@@ -1967,7 +2007,7 @@ class InstituteRequestableSubscriptionPlanListView(APIView):
         )
 
 
-class InstituteSubscriptionRequestListCreateView(APIView):
+class InstituteSubscriptionRequestListCreateView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformOrInstituteAdmin]
 
     def get(self, request):
@@ -2028,7 +2068,7 @@ class InstituteSubscriptionRequestListCreateView(APIView):
         )
 
 
-class AdminInstituteSubscriptionRequestReviewView(APIView):
+class AdminInstituteSubscriptionRequestReviewView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
 
     def post(self, request, request_id):
@@ -2082,7 +2122,7 @@ class AdminInstituteSubscriptionRequestReviewView(APIView):
         )
 
 
-class AdminReferralProgramListCreateView(APIView):
+class AdminReferralProgramListCreateView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
 
     def get(self, request):
@@ -2117,7 +2157,7 @@ class AdminReferralProgramListCreateView(APIView):
         )
 
 
-class AdminReferralProgramDetailView(APIView):
+class AdminReferralProgramDetailView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
 
     def patch(self, request, program_id):
@@ -2164,7 +2204,7 @@ class AdminReferralProgramDetailView(APIView):
         )
 
 
-class AdminRewardRuleListCreateView(APIView):
+class AdminRewardRuleListCreateView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
 
     def get(self, request):
@@ -2203,7 +2243,7 @@ class AdminRewardRuleListCreateView(APIView):
         )
 
 
-class AdminRewardRuleDetailView(APIView):
+class AdminRewardRuleDetailView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
 
     def patch(self, request, rule_id):
@@ -2258,7 +2298,7 @@ class AdminRewardRuleDetailView(APIView):
         )
 
 
-class AdminContentAccessPolicyListCreateView(APIView):
+class AdminContentAccessPolicyListCreateView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
 
     def get(self, request):
@@ -2300,7 +2340,7 @@ class AdminContentAccessPolicyListCreateView(APIView):
         )
 
 
-class AdminContentAccessPolicyDetailView(APIView):
+class AdminContentAccessPolicyDetailView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
 
     def patch(self, request, policy_id):
@@ -2351,7 +2391,7 @@ class AdminContentAccessPolicyDetailView(APIView):
         )
 
 
-class AdminUnlockRuleListCreateView(APIView):
+class AdminUnlockRuleListCreateView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
 
     def get(self, request):
@@ -2391,7 +2431,7 @@ class AdminUnlockRuleListCreateView(APIView):
         )
 
 
-class AdminUnlockRuleDetailView(APIView):
+class AdminUnlockRuleDetailView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
 
     def patch(self, request, rule_id):
@@ -2447,7 +2487,7 @@ class AdminUnlockRuleDetailView(APIView):
         )
 
 
-class AdminConfirmPaymentOrderView(APIView):
+class AdminConfirmPaymentOrderView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformOrInstituteAdmin]
 
     def post(self, request, order_id):
@@ -2507,7 +2547,7 @@ class AdminConfirmPaymentOrderView(APIView):
         )
 
 
-class AdminStudentWalletView(APIView):
+class AdminStudentWalletView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformOrInstituteAdmin]
 
     def get(self, request, student_id):
@@ -2527,7 +2567,7 @@ class AdminStudentWalletView(APIView):
         )
 
 
-class AdminStudentRewardEventListView(APIView):
+class AdminStudentRewardEventListView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformOrInstituteAdmin]
 
     def get(self, request, student_id):
@@ -2556,7 +2596,7 @@ class AdminStudentRewardEventListView(APIView):
         )
 
 
-class AdminStudentPaymentOrderListView(APIView):
+class AdminStudentPaymentOrderListView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformOrInstituteAdmin]
 
     def get(self, request, student_id):
@@ -2576,7 +2616,7 @@ class AdminStudentPaymentOrderListView(APIView):
         )
 
 
-class AdminSubscriptionAllowanceOpsSummaryView(APIView):
+class AdminSubscriptionAllowanceOpsSummaryView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformOrInstituteAdmin]
 
     def get(self, request):
@@ -2691,7 +2731,7 @@ class AdminSubscriptionAllowanceOpsSummaryView(APIView):
         )
 
 
-class AdminStudentSubscriptionListView(APIView):
+class AdminStudentSubscriptionListView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformOrInstituteAdmin]
 
     def get(self, request, student_id):
@@ -2711,7 +2751,7 @@ class AdminStudentSubscriptionListView(APIView):
         )
 
 
-class AdminStudentUnlockRefreshView(APIView):
+class AdminStudentUnlockRefreshView(EconomyAPIView):
     permission_classes = [IsAuthenticated, IsPlatformOrInstituteAdmin]
 
     def post(self, request, student_id):

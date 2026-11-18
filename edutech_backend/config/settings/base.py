@@ -17,6 +17,9 @@ if not DEBUG and SECRET_KEY == "change-me-change-me-change-me-change-me":
     raise ImproperlyConfigured("DJANGO_SECRET_KEY must be set when DJANGO_DEBUG is false.")
 APP_VERSION = config("APP_VERSION", default="1.0.0")
 APP_BUILD = config("APP_BUILD", default="local")
+APP_BUILD_TIMESTAMP = config("APP_BUILD_TIMESTAMP", default="unknown")
+APP_ENVIRONMENT = config("APP_ENVIRONMENT", default="local")
+APP_ARTIFACT_SHA256 = config("APP_ARTIFACT_SHA256", default="unknown")
 ALLOWED_HOSTS = config("DJANGO_ALLOWED_HOSTS", cast=Csv(), default="127.0.0.1,localhost")
 
 DJANGO_APPS = [
@@ -56,6 +59,7 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "django.middleware.gzip.GZipMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -85,6 +89,10 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
+DB_CONN_MAX_AGE_SECONDS = max(
+    config("DB_CONN_MAX_AGE_SECONDS", cast=int, default=0),
+    0,
+)
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
@@ -93,8 +101,44 @@ DATABASES = {
         "PASSWORD": config("DB_PASSWORD", default="postgres"),
         "HOST": config("DB_HOST", default="127.0.0.1"),
         "PORT": config("DB_PORT", default="5432"),
+        "CONN_MAX_AGE": DB_CONN_MAX_AGE_SECONDS,
+        "CONN_HEALTH_CHECKS": config(
+            "DB_CONN_HEALTH_CHECKS",
+            cast=bool,
+            default=DB_CONN_MAX_AGE_SECONDS > 0,
+        ),
     }
 }
+
+REDIS_CACHE_URL = config("REDIS_CACHE_URL", default="")
+if REDIS_CACHE_URL:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": REDIS_CACHE_URL,
+        }
+    }
+
+LOGIN_SUCCESS_CACHE_TTL_SECONDS = config(
+    "LOGIN_SUCCESS_CACHE_TTL_SECONDS",
+    cast=int,
+    default=60,
+)
+PASSWORD_RESET_TIMEOUT_MINUTES = config("PASSWORD_RESET_TIMEOUT_MINUTES", cast=int, default=30)
+PASSWORD_RESET_WEB_URL = config("PASSWORD_RESET_WEB_URL", default="http://localhost:3000/reset-password")
+STUDENT_SELF_SERVICE_PURCHASES_ENABLED = config(
+    "STUDENT_SELF_SERVICE_PURCHASES_ENABLED", cast=bool, default=False
+)
+DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="support@nexora.local")
+EMAIL_BACKEND = config(
+    "EMAIL_BACKEND",
+    default="django.core.mail.backends.console.EmailBackend" if DEBUG else "django.core.mail.backends.smtp.EmailBackend",
+)
+EMAIL_HOST = config("EMAIL_HOST", default="")
+EMAIL_PORT = config("EMAIL_PORT", cast=int, default=587)
+EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = config("EMAIL_USE_TLS", cast=bool, default=True)
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
@@ -117,7 +161,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "apps.accounts.authentication.AccountJWTAuthentication",
     ),
     "DEFAULT_FILTER_BACKENDS": (
         "django_filters.rest_framework.DjangoFilterBackend",
@@ -141,9 +185,11 @@ REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {
     "bulk_import": config("THROTTLE_BULK_IMPORT", default="10/hour"),
     "token_refresh": config("THROTTLE_TOKEN_REFRESH", default="60/hour"),
     "admin_provision": config("THROTTLE_ADMIN_PROVISION", default="30/hour"),
+    "password_reset": config("THROTTLE_PASSWORD_RESET", default="5/hour"),
 }
 
 SIMPLE_JWT = {
+    "CHECK_REVOKE_TOKEN": True,
     "ACCESS_TOKEN_LIFETIME": timedelta(
         minutes=config("ACCESS_TOKEN_LIFETIME_MINUTES", cast=int, default=60)
     ),
@@ -158,6 +204,27 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "REST API foundation for the EduTech education portal.",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    "ENUM_NAME_OVERRIDES": {
+        "AccountRoleEnum": "apps.accounts.models.AccountRole",
+        "AccountOnboardingStatusEnum": "apps.accounts.models.OnboardingStatus",
+        "AttemptReviewTaskStatusEnum": "apps.attempts.models.ReviewTaskStatus",
+        "EconomyEntitlementStatusEnum": "apps.economy.models.EntitlementStatus",
+        "ExamAccessSlotStatusEnum": "apps.exams.models.ExamAccessSlotStatus",
+        "ExamStatusEnum": "apps.exams.models.ExamStatus",
+        "InstituteOnboardingRunStatusEnum": "apps.institutes.models.InstituteOnboardingRunStatus",
+        "InstituteOnboardingTaskStatusEnum": "apps.institutes.models.InstituteOnboardingTaskStatus",
+        "InstituteQuestionEntitlementStatusEnum": "apps.economy.models.InstituteQuestionEntitlementStatus",
+        "InstituteSubscriptionRequestStatusEnum": "apps.economy.models.InstituteSubscriptionRequestStatus",
+        "PaymentOrderStatusEnum": "apps.economy.models.PaymentOrderStatus",
+        "PaymentTransactionStatusEnum": "apps.economy.models.PaymentTransactionStatus",
+        "ResultVisibilityTimingEnum": [
+            ("hidden", "Hidden"),
+            ("provisional_after_submit", "Provisional After Submit"),
+            ("final_after_exam_closure", "Final After Exam Closure"),
+        ],
+        "StudentSubscriptionStatusEnum": "apps.economy.models.StudentSubscriptionStatus",
+        "StudentUnlockStateStatusEnum": "apps.economy.models.UnlockStateStatus",
+    },
 }
 
 CORS_ALLOW_ALL_ORIGINS = config("CORS_ALLOW_ALL_ORIGINS", cast=bool, default=False)

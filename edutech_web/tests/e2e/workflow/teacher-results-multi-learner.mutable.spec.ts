@@ -80,6 +80,26 @@ function toDateTimeLocalValue(date: Date) {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
+async function selectFirstNonEmptyOption(page: Page, selector: string) {
+  const select = page.locator(selector);
+  await expect(select).toBeVisible();
+  await expect
+    .poll(async () =>
+      select.locator("option").evaluateAll((options) =>
+        options
+          .map((option) => (option as HTMLOptionElement).value)
+          .find((option) => option.trim().length > 0) ?? null,
+      ),
+    )
+    .not.toBeNull();
+  const optionValue = await select.locator("option").evaluateAll((options) =>
+    options
+      .map((option) => (option as HTMLOptionElement).value)
+      .find((option) => option.trim().length > 0) ?? "",
+  );
+  await select.selectOption(optionValue);
+}
+
 async function selectQuestionScope(page: Page) {
   const authProfile = await fetchAuthProfile(page);
   const programs = await fetchPrograms(page, authProfile.institute);
@@ -306,8 +326,8 @@ test.describe("Teacher mutable multi-learner results distribution", () => {
     let secondStudentDisplayName = "";
     let secondStudentAdmissionNo = "";
     let secondStudentCredentials: DirectLoginCredentials | null = null;
-    let questionId: string | null = null;
-    let examId: string | null = null;
+    let questionId = "";
+    let examId = "";
 
     const uniqueSeed = Date.now();
     const questionText = `PW multi learner question ${uniqueSeed}`;
@@ -371,8 +391,8 @@ test.describe("Teacher mutable multi-learner results distribution", () => {
       await page.getByRole("button", { name: /^create question$/i }).click();
       await expect(page).toHaveURL(/\/teacher\/question-bank\/.+\?message=/);
       const questionDetailUrl = page.url().split("?")[0] ?? page.url();
-      questionId = questionDetailUrl.match(/\/teacher\/question-bank\/([^/?#]+)/)?.[1] ?? null;
-      expect(questionId).not.toBeNull();
+      questionId = questionDetailUrl.match(/\/teacher\/question-bank\/([^/?#]+)/)?.[1] ?? "";
+      expect(questionId).not.toBe("");
 
       await page.goto("/teacher/exams/new");
       await expect(page.getByRole("heading", { name: /create exam/i }).first()).toBeVisible();
@@ -388,8 +408,8 @@ test.describe("Teacher mutable multi-learner results distribution", () => {
       await page.getByRole("button", { name: /create exam shell/i }).click();
       await expect(page).toHaveURL(/\/teacher\/exams\/.+\?message=/);
       const examDetailUrl = page.url().split("?")[0] ?? page.url();
-      examId = examDetailUrl.match(/\/teacher\/exams\/([^/?#]+)/)?.[1] ?? null;
-      expect(examId).not.toBeNull();
+      examId = examDetailUrl.match(/\/teacher\/exams\/([^/?#]+)/)?.[1] ?? "";
+      expect(examId).not.toBe("");
 
       await page.goto(`/teacher/exams/${examId}/builder?tab=questions`);
       const manualAttachForm = page.locator("form.builderForm.builderSubform").filter({
@@ -605,8 +625,8 @@ test.describe("Teacher mutable multi-learner results distribution", () => {
     let thirdStudentId: string | null = null;
     let thirdStudentDisplayName = "";
     let thirdStudentAdmissionNo = "";
-    let questionId: string | null = null;
-    let examId: string | null = null;
+    let questionId = "";
+    let examId = "";
 
     const uniqueSeed = Date.now();
     const questionText = `PW partial multi learner question ${uniqueSeed}`;
@@ -678,8 +698,8 @@ test.describe("Teacher mutable multi-learner results distribution", () => {
       await page.getByRole("button", { name: /^create question$/i }).click();
       await expect(page).toHaveURL(/\/teacher\/question-bank\/.+\?message=/);
       const questionDetailUrl = page.url().split("?")[0] ?? page.url();
-      questionId = questionDetailUrl.match(/\/teacher\/question-bank\/([^/?#]+)/)?.[1] ?? null;
-      expect(questionId).not.toBeNull();
+      questionId = questionDetailUrl.match(/\/teacher\/question-bank\/([^/?#]+)/)?.[1] ?? "";
+      expect(questionId).not.toBe("");
 
       await page.goto("/teacher/exams/new");
       await expect(page.getByRole("heading", { name: /create exam/i }).first()).toBeVisible();
@@ -695,8 +715,8 @@ test.describe("Teacher mutable multi-learner results distribution", () => {
       await page.getByRole("button", { name: /create exam shell/i }).click();
       await expect(page).toHaveURL(/\/teacher\/exams\/.+\?message=/);
       const examDetailUrl = page.url().split("?")[0] ?? page.url();
-      examId = examDetailUrl.match(/\/teacher\/exams\/([^/?#]+)/)?.[1] ?? null;
-      expect(examId).not.toBeNull();
+      examId = examDetailUrl.match(/\/teacher\/exams\/([^/?#]+)/)?.[1] ?? "";
+      expect(examId).not.toBe("");
 
       await page.goto(`/teacher/exams/${examId}/builder?tab=questions`);
       const manualAttachForm = page.locator("form.builderForm.builderSubform").filter({

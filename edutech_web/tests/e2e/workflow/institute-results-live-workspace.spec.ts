@@ -59,9 +59,9 @@ test.describe("Institute live monitor workspace", () => {
     "Institute Playwright credentials are not configured.",
   );
 
-  test("@workflow institute can inspect live monitor controls and drill into an attempt when available", async ({
+  test("@workflow [IR-P0-003] institute can inspect live monitor controls and drill into an attempt when available", async ({
     page,
-  }) => {
+  }, testInfo) => {
     await loginAsRole(page, "institute");
     await expectInstituteWorkspace(page);
 
@@ -87,5 +87,6 @@ test.describe("Institute live monitor workspace", () => {
     await expect(page.getByText(/last refreshed at|waiting for first refresh cycle/i).first()).toBeVisible();
 
     await expectAttemptDrillOrEmptyState(page);
+    await page.screenshot({ path: testInfo.outputPath("IR-P0-003-results-live.png"), fullPage: true });
   });
 });

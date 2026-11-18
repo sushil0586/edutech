@@ -35,6 +35,10 @@ test.describe("Role and access control", () => {
     await expectRedirectToLogin("/app/exams", page);
   });
 
+  test("anonymous user is redirected from platform admin to login", async ({ page }) => {
+    await expectRedirectToLogin("/admin/dashboard", page);
+  });
+
   test.skip(testRequiresRole("teacher"), "Teacher Playwright credentials are not configured.");
   test("teacher session cannot open student or institute-only workspaces", async ({ page }) => {
     await loginAsRole(page, "teacher");
@@ -45,6 +49,11 @@ test.describe("Role and access control", () => {
     );
     await expectBlockedRoleRedirect(
       "/institute/results",
+      [/\/login(?:\?|$)/, /\/teacher\/dashboard(?:\?|$)/],
+      page,
+    );
+    await expectBlockedRoleRedirect(
+      "/admin/dashboard",
       [/\/login(?:\?|$)/, /\/teacher\/dashboard(?:\?|$)/],
       page,
     );
@@ -60,6 +69,11 @@ test.describe("Role and access control", () => {
     );
     await expectBlockedRoleRedirect(
       "/institute/results",
+      [/\/login(?:\?|$)/, /\/app\/dashboard(?:\?|$)/],
+      page,
+    );
+    await expectBlockedRoleRedirect(
+      "/admin/dashboard",
       [/\/login(?:\?|$)/, /\/app\/dashboard(?:\?|$)/],
       page,
     );
@@ -86,6 +100,11 @@ test.describe("Role and access control", () => {
     await loginAsRole(page, "institute");
     await expectBlockedRoleRedirect(
       "/app/exams",
+      [/\/login(?:\?|$)/, /\/institute\/dashboard(?:\?|$)/],
+      page,
+    );
+    await expectBlockedRoleRedirect(
+      "/admin/dashboard",
       [/\/login(?:\?|$)/, /\/institute\/dashboard(?:\?|$)/],
       page,
     );

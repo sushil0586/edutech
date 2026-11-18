@@ -702,6 +702,28 @@ class StudentAnswerReviewTaskDetailSerializer(StudentAnswerReviewTaskSerializer)
         fields = StudentAnswerReviewTaskSerializer.Meta.fields + ("events",)
 
 
+class StudentExamAttemptListSerializer(serializers.ModelSerializer):
+    exam_title = serializers.CharField(source="exam.title", read_only=True)
+
+    class Meta:
+        model = StudentExamAttempt
+        fields = (
+            "id",
+            "exam",
+            "exam_title",
+            "status",
+            "expires_at",
+            "submitted_at",
+            "total_questions",
+            "attempted_questions",
+        )
+        read_only_fields = fields
+
+    def to_representation(self, instance):
+        sync_attempt_access_state(instance)
+        return super().to_representation(instance)
+
+
 class StudentExamAttemptSerializer(serializers.ModelSerializer):
     exam_title = serializers.CharField(source="exam.title", read_only=True)
     exam_code = serializers.CharField(source="exam.code", read_only=True)

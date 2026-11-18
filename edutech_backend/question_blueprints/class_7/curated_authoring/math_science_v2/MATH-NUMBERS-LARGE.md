@@ -328,7 +328,7 @@ negative_marks: 0.25
 archetype: ordering_reasoning
 
 Question Text:
-Which list is arranged from smallest to largest?
+Which lakh-number list is arranged from smallest to largest?
 
 Explanation:
 Compare the lakh values carefully. 8,95,000 is less than 9,05,000, which is less than 9,50,000, which is less than 10,20,000. So the correctly ordered list is the one that follows this increasing sequence.

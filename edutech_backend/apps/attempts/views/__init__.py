@@ -5,7 +5,7 @@ import os
 from django.core.files.storage import default_storage
 from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.db.models import Prefetch
+from django.db.models import Exists, OuterRef, Prefetch
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -56,13 +56,16 @@ from apps.attempts.serializers import (
     ManualReviewAnswerSerializer,
     UploadStudentResponseArtifactSerializer,
 )
-from apps.exams.models import ExamSection
+from apps.exams.models import Exam, ExamSection
 from apps.exams.services import (
     is_review_available_for_attempt,
     resolve_exam_economy_access,
     resolve_exam_start_access,
 )
 from apps.attempts.services import (
+    AnswerConflictError,
+    UNSET_ANSWER_VERSION,
+    REVIEW_TASK_UNRESOLVED_STATUSES,
     assign_review_task,
     bulk_request_review_recheck_tasks,
     bulk_moderate_review_tasks,
@@ -83,7 +86,8 @@ from apps.question_bank.registry import (
     question_type_supports_response_artifacts,
 )
 from apps.teachers.models import TeacherProfile
-from apps.reports.services import create_audit_log
+from apps.reports.services import create_activation_audit_log, create_audit_log
+from apps.students.models import StudentProfile
 from common.throttles import AttemptLifecycleRateThrottle, AttemptSaveAnswerRateThrottle
 from common.responses import action_response
 
@@ -135,10 +139,47 @@ class StudentExamAttemptViewSet(ReadOnlyModelViewSet):
         return super().get_throttles()
 
     def get_queryset(self):
-        queryset = (
-            StudentExamAttempt.objects.select_related(
+        if self.action == "save_answer_action":
+            queryset = StudentExamAttempt.objects.select_related(
+                "exam",
+                "student",
+                "result",
+            )
+            return scope_attempt_workspace_queryset(queryset, self.request.user)
+
+        lean_write_actions = {
+            "submit",
+            "upload_response_artifact_action",
+            "integrity_event_action",
+        }
+        if self.action in lean_write_actions:
+            queryset = StudentExamAttempt.objects.select_related(
                 "institute",
                 "exam",
+                "exam__institute",
+                "exam__source_teacher",
+                "student",
+                "result",
+            )
+        elif self.action == "summary":
+            queryset = StudentExamAttempt.objects.select_related(
+                "exam",
+                "exam__institute",
+                "exam__source_teacher",
+                "student",
+                "result",
+            )
+        elif self.action == "review":
+            queryset = StudentExamAttempt.objects.select_related(
+                "exam",
+                "student",
+                "result",
+            )
+        else:
+            queryset = StudentExamAttempt.objects.select_related(
+                "institute",
+                "exam",
+                "exam__institute",
                 "exam__subject",
                 "exam__program",
                 "exam__cohort",
@@ -146,14 +187,56 @@ class StudentExamAttemptViewSet(ReadOnlyModelViewSet):
                 "student",
                 "result",
             )
-            .prefetch_related(
-                "answers__question",
-                "answers__selected_option",
+
+        review_tasks = Prefetch(
+            "review_tasks",
+            queryset=StudentAnswerReviewTask.objects.filter(
+                is_active=True,
+                status__in=REVIEW_TASK_UNRESOLVED_STATUSES,
+            ).only("id", "attempt_id"),
+            to_attr="_prefetched_unresolved_review_tasks",
+        )
+        unresolved_review_tasks = StudentAnswerReviewTask.objects.filter(
+            attempt_id=OuterRef("pk"),
+            is_active=True,
+            status__in=REVIEW_TASK_UNRESOLVED_STATUSES,
+        )
+        if self.action == "summary":
+            queryset = queryset.annotate(
+                _has_unresolved_review_tasks=Exists(unresolved_review_tasks)
+            )
+        elif self.action == "submit":
+            queryset = queryset.annotate(
+                _has_unresolved_review_tasks=Exists(unresolved_review_tasks)
+            )
+        elif self.action == "review":
+            queryset = queryset.annotate(
+                _has_unresolved_review_tasks=Exists(unresolved_review_tasks)
+            ).prefetch_related(
+                Prefetch(
+                    "answers",
+                    queryset=StudentAnswer.objects.select_related("selected_option").prefetch_related(
+                        "selected_option_links"
+                    ),
+                ),
                 Prefetch(
                     "exam__exam_questions",
-                    queryset=(
-                        self._active_exam_questions_queryset()
-                    ),
+                    queryset=self._active_exam_questions_queryset(),
+                    to_attr="_prefetched_active_exam_questions",
+                ),
+            )
+        elif self.action == "detail_action":
+            queryset = queryset.prefetch_related(
+                Prefetch(
+                    "answers",
+                    queryset=StudentAnswer.objects.select_related(
+                        "question",
+                        "selected_option",
+                    ).prefetch_related("selected_option_links"),
+                ),
+                Prefetch(
+                    "exam__exam_questions",
+                    queryset=self._active_exam_questions_queryset(),
                     to_attr="_prefetched_active_exam_questions",
                 ),
                 Prefetch(
@@ -165,8 +248,30 @@ class StudentExamAttemptViewSet(ReadOnlyModelViewSet):
                     to_attr="_prefetched_active_integrity_events",
                 ),
             )
-            .all()
-        )
+        elif self.action not in lean_write_actions:
+            queryset = queryset.prefetch_related(
+                Prefetch(
+                    "answers",
+                    queryset=StudentAnswer.objects.select_related(
+                        "question",
+                        "selected_option",
+                    ).prefetch_related("selected_option_links"),
+                ),
+                Prefetch(
+                    "exam__exam_questions",
+                    queryset=self._active_exam_questions_queryset(),
+                    to_attr="_prefetched_active_exam_questions",
+                ),
+                Prefetch(
+                    "integrity_events",
+                    queryset=AttemptIntegrityEvent.objects.filter(is_active=True).order_by(
+                        "-event_at",
+                        "-created_at",
+                    ),
+                    to_attr="_prefetched_active_integrity_events",
+                ),
+                review_tasks,
+            )
         return scope_attempt_workspace_queryset(queryset, self.request.user)
 
     def _active_exam_questions_queryset(self):
@@ -174,7 +279,13 @@ class StudentExamAttemptViewSet(ReadOnlyModelViewSet):
 
         return (
             ExamQuestion.objects.filter(is_active=True)
-            .select_related("question", "question__passage", "section")
+            .select_related(
+                "question",
+                "question__passage",
+                "question__subject",
+                "question__topic",
+                "section",
+            )
             .prefetch_related("question__options", "question__attachments")
             .order_by("question_order", "created_at")
         )
@@ -190,7 +301,7 @@ class StudentExamAttemptViewSet(ReadOnlyModelViewSet):
 
         if (
             profile.role == AccountRole.STUDENT
-            and profile.student_profile_id != serializer.validated_data["student_obj"].id
+            and profile.student_profile_id != serializer.validated_data["student"]
         ):
             return Response(
                 {"detail": "You can only start attempts for your own student profile."},
@@ -209,57 +320,38 @@ class StudentExamAttemptViewSet(ReadOnlyModelViewSet):
         try:
             exam = get_scoped_object_or_403(
                 scope_exam_queryset(
-                    serializer.validated_data["exam_obj"].__class__.objects.select_related(
+                    Exam.objects.select_related(
                         "institute",
                         "academic_year",
                         "program",
+                        "program__assessment_family",
                         "cohort",
+                        "subject",
+                        "source_teacher",
                     ),
                     request.user,
                 ),
                 user=request.user,
-                value=serializer.validated_data["exam_obj"].pk,
+                value=serializer.validated_data["exam"],
                 not_found_message="Exam not found in your scope.",
             )
             student = get_scoped_object_or_403(
                 scope_student_profile_queryset(
-                    serializer.validated_data["student_obj"].__class__.objects.select_related(
+                    StudentProfile.objects.select_related(
                         "institute",
                         "academic_year",
                         "program",
                         "cohort",
+                        "typed_accommodation_profile",
                     ),
                     request.user,
                 ),
                 user=request.user,
-                value=serializer.validated_data["student_obj"].pk,
+                value=serializer.validated_data["student"],
                 not_found_message="Student not found in your scope.",
             )
         except PermissionDenied as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
-
-        economy_access = resolve_exam_economy_access(student, exam)
-        has_active_attempt = exam.attempts.filter(
-            student=student,
-            status="in_progress",
-            is_active=True,
-        ).exists()
-        attempts_used = exam.attempts.filter(student=student, is_active=True).count()
-        start_access = resolve_exam_start_access(
-            student,
-            exam,
-            economy_access=economy_access,
-            attempts_used=attempts_used,
-            has_active_attempt=has_active_attempt,
-        )
-        if not start_access["is_allowed"]:
-            return Response(
-                {
-                    "exam": [start_access["reason_message"]],
-                    "blocked_start": _blocked_start_payload(decision=start_access),
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
 
         try:
             attempt = start_attempt(
@@ -282,7 +374,7 @@ class StudentExamAttemptViewSet(ReadOnlyModelViewSet):
             if not refreshed_start_access["is_allowed"]:
                 error_data["blocked_start"] = _blocked_start_payload(decision=refreshed_start_access)
             return Response(error_data, status=status.HTTP_400_BAD_REQUEST)
-        create_audit_log(
+        create_activation_audit_log(
             user=request.user,
             institute=attempt.institute,
             action="attempt_start",
@@ -292,6 +384,17 @@ class StudentExamAttemptViewSet(ReadOnlyModelViewSet):
             metadata={"exam_id": str(attempt.exam_id), "student_id": str(attempt.student_id)},
             request=request,
         )
+        attempt._prefetched_objects_cache = {"answers": []}
+        attempt._prefetched_active_integrity_events = []
+        active_exam_questions = getattr(exam, "_active_exam_questions_cache", [])
+        exam._prefetched_active_exam_questions = active_exam_questions
+        seen_subjects = set()
+        exam._attempt_section_subjects_cache = []
+        for section in getattr(exam, "_active_exam_sections_cache", []):
+            subject_name = getattr(getattr(section, "subject", None), "name", None)
+            if subject_name and subject_name not in seen_subjects:
+                seen_subjects.add(subject_name)
+                exam._attempt_section_subjects_cache.append({"name": subject_name})
         return action_response(
             data=StudentExamAttemptSerializer(attempt).data,
             message="Attempt started successfully.",
@@ -320,11 +423,36 @@ class StudentExamAttemptViewSet(ReadOnlyModelViewSet):
                 is_marked_for_review=serializer.validated_data.get("is_marked_for_review", False),
                 clear_response=serializer.validated_data.get("clear_response", False),
                 skip=serializer.validated_data.get("skip", False),
+                expected_answer_updated_at=serializer.validated_data.get(
+                    "expected_answer_updated_at", UNSET_ANSWER_VERSION
+                ),
             )
+        except AnswerConflictError as exc:
+            create_activation_audit_log(
+                user=request.user,
+                institute=attempt.institute,
+                action="attempt_save_failed",
+                entity_type="attempt",
+                entity_id=attempt.id,
+                message="Student answer save failed.",
+                metadata={"exam_id": str(attempt.exam_id), "error_category": "conflict"},
+                request=request,
+            )
+            return Response(_validation_error_data(exc), status=status.HTTP_409_CONFLICT)
         except DjangoValidationError as exc:
             exam_logger.warning(
                 "Attempt save-answer failed",
                 extra={"attempt_id": str(attempt.id), "user_id": request.user.id},
+            )
+            create_activation_audit_log(
+                user=request.user,
+                institute=attempt.institute,
+                action="attempt_save_failed",
+                entity_type="attempt",
+                entity_id=attempt.id,
+                message="Student answer save failed.",
+                metadata={"exam_id": str(attempt.exam_id), "error_category": "validation"},
+                request=request,
             )
             return Response(_validation_error_data(exc), status=status.HTTP_400_BAD_REQUEST)
 
@@ -440,7 +568,7 @@ class StudentExamAttemptViewSet(ReadOnlyModelViewSet):
                 extra={"attempt_id": str(attempt.id), "user_id": request.user.id},
             )
             return Response(_validation_error_data(exc), status=status.HTTP_400_BAD_REQUEST)
-        create_audit_log(
+        create_activation_audit_log(
             user=request.user,
             institute=attempt.institute,
             action="attempt_submit",
@@ -684,6 +812,8 @@ class StudentAnswerReviewTaskViewSet(ReadOnlyModelViewSet):
         )
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return StudentAnswerReviewTask.objects.none()
         self._ensure_review_permissions()
         queryset = self._base_queryset(include_events=True)
         scoped_attempts = scope_attempt_workspace_queryset(StudentExamAttempt.objects.all(), self.request.user)

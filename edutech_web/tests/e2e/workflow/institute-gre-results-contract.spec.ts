@@ -55,6 +55,7 @@ test.describe("Institute GRE results contract", () => {
       !liveExam || !publishedExam,
       "GRE seeded demo exams are not available in this environment, so this contract cannot assert institute parity here.",
     );
+    if (!liveExam || !publishedExam) return;
 
     await page.goto(`/institute/exams/${liveExam.id}`);
     await expect(page.getByRole("heading", { name: new RegExp(liveExam.title, "i") }).first()).toBeVisible();

@@ -4,6 +4,7 @@ import {
   primaryNavigation,
   publicPortalAccessLanes,
 } from "@/lib/site-content";
+import { PublicPolicyLinks } from "@/components/ui/public-policy-links";
 
 function renderAvatarSeed(value: string) {
   return value
@@ -16,6 +17,7 @@ function renderAvatarSeed(value: string) {
 
 export default function Home() {
   const {
+    launchScopeStatement,
     hero,
     heroPanel,
     statsBand,
@@ -87,6 +89,8 @@ export default function Home() {
               <span key={point}>{point}</span>
             ))}
           </div>
+
+          <p className="sectionDescription">{launchScopeStatement}</p>
         </div>
 
         <div className="marketingHeroVisual">
@@ -330,6 +334,7 @@ export default function Home() {
           <span>{finalCta.trust}</span>
         </div>
       </section>
+      <footer className="container"><PublicPolicyLinks /></footer>
     </main>
   );
 }

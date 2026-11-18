@@ -15,6 +15,8 @@ import {
 } from "@/lib/api/student";
 import { studentDateTimeLabel } from "@/lib/student/formatters";
 
+const studentPurchasesEnabled = process.env.STUDENT_SELF_SERVICE_PURCHASES_ENABLED === "true";
+
 async function loadSubscriptions() {
   const state = getStudentApiState();
 
@@ -123,6 +125,10 @@ function resolveRows(value: string | undefined): SubscriptionRows {
 
 async function createSubscriptionOrderAction(formData: FormData) {
   "use server";
+
+  if (!studentPurchasesEnabled) {
+    redirect("/app/subscriptions?error=Student%20purchases%20are%20not%20available%20during%20the%20assisted%20pilot.");
+  }
 
   const cycleId = String(formData.get("subscription_plan_cycle_id") ?? "");
   if (!cycleId) {
@@ -589,7 +595,7 @@ export default async function SubscriptionsPage({
                                     : ""}
                                 </span>
                               </div>
-                          <form action={createSubscriptionOrderAction}>
+                          {studentPurchasesEnabled ? <form action={createSubscriptionOrderAction}>
                                 <input
                                   name="subscription_plan_cycle_id"
                                   type="hidden"
@@ -600,7 +606,7 @@ export default async function SubscriptionsPage({
                                   idleLabel="Request Plan"
                                   pendingLabel="Creating..."
                                 />
-                              </form>
+                              </form> : <small>Institute-managed access only during the pilot.</small>}
                             </div>
                           );
                         })}

@@ -8,6 +8,7 @@ import {
   isSupportedPortalRole,
 } from "@/lib/auth/session";
 import { portalAccessLanes } from "@/lib/site-content";
+import { PublicPolicyLinks } from "@/components/ui/public-policy-links";
 
 function resolveRole(value: string | string[] | undefined) {
   if (Array.isArray(value)) {
@@ -104,13 +105,13 @@ export default async function LoginPage({
             <div className="authStoryGrid">
               <article className="authStoryCard">
                 <span>01</span>
-                <strong>Student and parent access</strong>
+                <strong>Student access</strong>
                 <p>Resume practice, reports, and guided learning activity from the right workspace.</p>
               </article>
               <article className="authStoryCard">
                 <span>02</span>
                 <strong>Teacher and institute access</strong>
-                <p>Return to exam operations, question workflows, and review tasks with less friction.</p>
+                <p>Return to exam operations, question workflows, and managed rollout tasks with less friction.</p>
               </article>
             </div>
           )}
@@ -122,6 +123,7 @@ export default async function LoginPage({
             title={pageTitle}
             description={pageDescription}
             className="pageHeaderCompact authPageHeader"
+            headingLevel={2}
           />
 
           <LoginForm />
@@ -129,6 +131,7 @@ export default async function LoginPage({
           <p className="authMeta">
             Need a different lane? <Link href="/signup">See access options</Link>
           </p>
+          <PublicPolicyLinks />
         </div>
       </section>
     </div>

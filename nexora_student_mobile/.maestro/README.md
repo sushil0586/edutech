@@ -107,7 +107,7 @@ maestro test .maestro/student-register-offline-setup-error.yaml
 When running seeded flows with inline credentials, pass each variable as `-e KEY=VALUE`:
 
 ```bash
-maestro test -e STUDENT_USERNAME=a001 -e STUDENT_PASSWORD='Ansh@1789' .maestro/student-analytics-and-logout.yaml
+maestro test -e STUDENT_USERNAME=a001 -e STUDENT_PASSWORD='${STUDENT_PASSWORD}' .maestro/student-analytics-and-logout.yaml
 ```
 
 ## Notes

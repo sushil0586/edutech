@@ -10,10 +10,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.anonymous.nexora-student-mobile",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false,
-        "NSAppTransportSecurity": {
-          "NSAllowsArbitraryLoads": true
-        }
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -24,11 +21,19 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
+      "allowBackup": false,
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ],
       "package": "com.anonymous.nexorastudentmobile"
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store"
+      "expo-secure-store",
+      "./plugins/with-android-debug-network-security",
+      "./plugins/with-android-release-safety"
     ],
     "scheme": "nexora-student",
     "experiments": {
