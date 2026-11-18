@@ -5,7 +5,7 @@ import {
 import { fetchPortalList } from "@/lib/api/portal";
 import {
   fetchStudentAttempts,
-  fetchStudentAvailableExams,
+  fetchStudentExamDiscovery,
   fetchStudentNotifications,
   fetchStudentResults,
 } from "@/lib/api/student";
@@ -61,7 +61,7 @@ function compactKeywords(values: Array<string | null | undefined>) {
 async function loadStudentLiveEntries(query: string): Promise<WorkspaceSearchEntry[]> {
   const [examsResult, resultsResult, attemptsResult, notificationsResult] =
     await Promise.allSettled([
-      fetchStudentAvailableExams(),
+      fetchStudentExamDiscovery(),
       fetchStudentResults(),
       fetchStudentAttempts(),
       fetchStudentNotifications(),

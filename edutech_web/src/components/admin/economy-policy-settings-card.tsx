@@ -1,42 +1,7 @@
 "use client";
 
 import { useState } from "react";
-
-type EconomyPolicyAuditEntry = {
-  id: string;
-  user: number | null;
-  user_label: string | null;
-  action: string;
-  entity_type: string;
-  entity_id: string;
-  message: string;
-  metadata: {
-    changed_fields?: Record<string, { before: unknown; after: unknown }>;
-  };
-  created_at: string;
-};
-
-type EconomyPolicyConfig = {
-  id: string;
-  singleton_key: string;
-  institute_admin_can_confirm_orders: boolean;
-  institute_admin_max_confirm_order_amount: string;
-  institute_admin_confirm_order_currency: string;
-  institute_admin_can_grant_stars: boolean;
-  institute_admin_max_grant_stars: number;
-  latest_audit: {
-    id: string;
-    action: string;
-    message: string;
-    user: number | null;
-    user_label: string | null;
-    created_at: string;
-    metadata: Record<string, unknown>;
-  } | null;
-  created_at: string;
-  updated_at: string;
-  is_active: boolean;
-};
+import type { EconomyPolicyAuditEntry, EconomyPolicyConfig } from "@/features/dashboard/types";
 
 export function EconomyPolicySettingsCard({
   initialConfig,
@@ -56,6 +21,16 @@ export function EconomyPolicySettingsCard({
     initialConfig?.institute_admin_max_confirm_order_amount ?? "5000.00",
   );
   const [currency] = useState(initialConfig?.institute_admin_confirm_order_currency ?? "INR");
+  const [platformCatalogGovernanceScope] = useState(
+    initialConfig?.platform_catalog_governance_scope ?? "platform_only",
+  );
+  const [instituteCatalogGovernanceScope] = useState(
+    initialConfig?.institute_catalog_governance_scope ?? "platform_only",
+  );
+  const [platformSupportScope] = useState(initialConfig?.platform_support_scope ?? "cross_institute");
+  const [instituteSupportScope, setInstituteSupportScope] = useState(
+    initialConfig?.institute_support_scope ?? "institute_only",
+  );
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -90,6 +65,7 @@ export function EconomyPolicySettingsCard({
           institute_admin_max_grant_stars: Number(maxGrantStars),
           institute_admin_can_confirm_orders: canConfirmOrders,
           institute_admin_max_confirm_order_amount: maxConfirmAmount,
+          institute_support_scope: instituteSupportScope,
         }),
       });
 
@@ -203,6 +179,39 @@ export function EconomyPolicySettingsCard({
                 value={maxConfirmAmount}
                 onChange={(event) => setMaxConfirmAmount(event.target.value)}
               />
+            </label>
+            <label className="setupField">
+              <span>Institute support scope</span>
+              <select
+                value={instituteSupportScope}
+                onChange={(event) =>
+                  setInstituteSupportScope(event.target.value as "cross_institute" | "institute_only")
+                }
+              >
+                <option value="institute_only">Institute only</option>
+                <option value="cross_institute">Cross institute</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div className="economyFormSection">
+          <div className="economyFormSectionHeader">
+            <strong>Platform-governed guardrails</strong>
+            <span>These fields now come from backend policy config so the frontend shows the real live contract, even when some values remain platform-locked.</span>
+          </div>
+          <div className="economyCommerceGridPrimary">
+            <label className="setupField">
+              <span>Platform catalog governance scope</span>
+              <input readOnly type="text" value={platformCatalogGovernanceScope} />
+            </label>
+            <label className="setupField">
+              <span>Institute catalog governance scope</span>
+              <input readOnly type="text" value={instituteCatalogGovernanceScope} />
+            </label>
+            <label className="setupField">
+              <span>Platform support scope</span>
+              <input readOnly type="text" value={platformSupportScope} />
             </label>
           </div>
         </div>

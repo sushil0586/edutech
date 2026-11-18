@@ -67,24 +67,24 @@ class ExamResultSerializer(serializers.ModelSerializer):
         model = ExamResult
         fields = "__all__"
 
-    def get_review_available(self, obj):
+    def get_review_available(self, obj) -> bool:
         if not obj.attempt_id:
             return False
         return is_review_available_for_attempt(obj.exam, obj.attempt, result=obj)
 
-    def get_source_type(self, obj):
+    def get_source_type(self, obj) -> str:
         return resolve_exam_source_metadata(obj.exam)["source_type"]
 
-    def get_source_label(self, obj):
+    def get_source_label(self, obj) -> str:
         return resolve_exam_source_metadata(obj.exam)["source_label"]
 
-    def get_source_name(self, obj):
+    def get_source_name(self, obj) -> str:
         return resolve_exam_source_metadata(obj.exam)["source_name"]
 
-    def get_source_teacher_id(self, obj):
+    def get_source_teacher_id(self, obj) -> str | None:
         return resolve_exam_source_metadata(obj.exam)["teacher_id"]
 
-    def get_source_teacher_name(self, obj):
+    def get_source_teacher_name(self, obj) -> str | None:
         return resolve_exam_source_metadata(obj.exam)["teacher_name"]
 
 
@@ -138,24 +138,24 @@ class ExamResultListSerializer(serializers.ModelSerializer):
         )
         read_only_fields = fields
 
-    def get_review_available(self, obj):
+    def get_review_available(self, obj) -> bool:
         if not obj.attempt_id:
             return False
         return is_review_available_for_attempt(obj.exam, obj.attempt, result=obj)
 
-    def get_source_type(self, obj):
+    def get_source_type(self, obj) -> str:
         return resolve_exam_source_metadata(obj.exam)["source_type"]
 
-    def get_source_label(self, obj):
+    def get_source_label(self, obj) -> str:
         return resolve_exam_source_metadata(obj.exam)["source_label"]
 
-    def get_source_name(self, obj):
+    def get_source_name(self, obj) -> str:
         return resolve_exam_source_metadata(obj.exam)["source_name"]
 
-    def get_source_teacher_id(self, obj):
+    def get_source_teacher_id(self, obj) -> str | None:
         return resolve_exam_source_metadata(obj.exam)["teacher_id"]
 
-    def get_source_teacher_name(self, obj):
+    def get_source_teacher_name(self, obj) -> str | None:
         return resolve_exam_source_metadata(obj.exam)["teacher_name"]
 
 
@@ -188,26 +188,26 @@ class ExamPerformanceSummarySerializer(serializers.ModelSerializer):
         model = ExamPerformanceSummary
         fields = "__all__"
 
-    def get_results_published(self, obj):
+    def get_results_published(self, obj) -> int:
         total_results_count = getattr(obj, "total_results_count", 0) or 0
         published_results_count = getattr(obj, "published_results_count", 0) or 0
         return total_results_count > 0 and total_results_count == published_results_count
 
-    def get_review_blocked(self, obj):
+    def get_review_blocked(self, obj) -> int:
         return (getattr(obj, "pending_review_tasks_count", 0) or 0) > 0
 
-    def get_review_release_risk(self, obj):
+    def get_review_release_risk(self, obj) -> dict:
         return _review_release_risk_payload(obj)
 
-    def get_score_distribution(self, obj):
+    def get_score_distribution(self, obj) -> list:
         metadata = obj.metadata if isinstance(getattr(obj, "metadata", {}), dict) else {}
         return metadata.get("score_distribution", [])
 
-    def get_section_performance(self, obj):
+    def get_section_performance(self, obj) -> list:
         metadata = obj.metadata if isinstance(getattr(obj, "metadata", {}), dict) else {}
         return metadata.get("section_performance", [])
 
-    def get_experience_profile(self, obj):
+    def get_experience_profile(self, obj) -> dict:
         metadata = obj.metadata if isinstance(getattr(obj, "metadata", {}), dict) else {}
         if isinstance(metadata.get("experience_profile"), dict):
             return metadata["experience_profile"]
@@ -281,19 +281,19 @@ class TeacherExamAttemptSerializer(serializers.ModelSerializer):
             "alerts",
         )
 
-    def get_can_force_submit(self, obj):
+    def get_can_force_submit(self, obj) -> bool:
         return force_submit_eligibility(obj)["allowed"]
 
-    def get_force_submit_block_reason(self, obj):
+    def get_force_submit_block_reason(self, obj) -> str:
         return force_submit_eligibility(obj)["reason"]
 
-    def get_alerts(self, obj):
+    def get_alerts(self, obj) -> list:
         return attempt_monitor_alerts(obj)
 
-    def get_integrity_summary(self, obj):
+    def get_integrity_summary(self, obj) -> dict:
         return attempt_integrity_summary(obj)
 
-    def get_accommodation_snapshot(self, obj):
+    def get_accommodation_snapshot(self, obj) -> dict:
         return attempt_accommodation_snapshot(obj)
 
 
@@ -358,7 +358,7 @@ class TeacherAttemptInterventionSerializer(serializers.ModelSerializer):
             "user_label",
         )
 
-    def get_user_label(self, obj):
+    def get_user_label(self, obj) -> str:
         if not obj.user:
             return "System"
         full_name = obj.user.get_full_name().strip()

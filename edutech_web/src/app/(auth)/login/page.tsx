@@ -123,7 +123,6 @@ export default async function LoginPage({
             title={pageTitle}
             description={pageDescription}
             className="pageHeaderCompact authPageHeader"
-            headingLevel={2}
           />
 
           <LoginForm />

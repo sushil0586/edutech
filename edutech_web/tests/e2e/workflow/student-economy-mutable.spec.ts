@@ -42,7 +42,7 @@ test.describe("Student mutable economy actions", () => {
 
     await page.goto("/app/wallet");
     await expect(page.getByRole("heading", { name: /wallet/i }).first()).toBeVisible();
-    await expect(page.getByText(/what this page can and cannot do/i).first()).toBeVisible();
+    await expect(page.getByText(/what this page covers/i).first()).toBeVisible();
     await expect(page.getByText(/instant settlement/i).first()).toBeVisible();
     const walletBefore = await readMetricCardNumber(page, /available stars/i);
 
@@ -54,9 +54,9 @@ test.describe("Student mutable economy actions", () => {
       await expect(
         page.getByText(/order created\. it will stay pending until confirmed/i).first(),
       ).toBeVisible();
-      await expect(page.getByText(/order lifecycle detail/i).first()).toBeVisible();
+      await expect(page.getByText(/order progress/i).first()).toBeVisible();
       await expect(
-        page.getByText(/understand whether a request is only created, already processed, or fully credited/i).first(),
+        page.getByText(/check whether a request is created, processed, or fully credited/i).first(),
       ).toBeVisible();
       await expectAnyVisible(page, [
         /request created/i,
@@ -66,17 +66,17 @@ test.describe("Student mutable economy actions", () => {
       ]);
       await expect(
         page.locator(".contentCard").filter({
-          has: page.getByText(/order lifecycle detail/i),
+          has: page.getByText(/order progress/i),
         }).getByText(/wallet credit/i).first(),
       ).toBeVisible();
       await expect(
         page.locator(".contentCard").filter({
-          has: page.getByText(/order lifecycle detail/i),
+          has: page.getByText(/order progress/i),
         }).getByText(/pending|recorded/i).first(),
       ).toBeVisible();
       expect(await readMetricCardNumber(page, /available stars/i)).toBe(walletBefore);
       await expect(
-        page.getByText(/does not promise instant settlement/i).first(),
+        page.getByText(/some requests may take time before the stars appear in your wallet/i).first(),
       ).toBeVisible();
     } else {
       await expect(
@@ -86,7 +86,7 @@ test.describe("Student mutable economy actions", () => {
 
     await page.goto("/app/subscriptions");
     await expect(page.getByRole("heading", { name: /subscriptions/i }).first()).toBeVisible();
-    await expect(page.getByText(/what this page can and cannot do/i).first()).toBeVisible();
+    await expect(page.getByText(/what this page covers/i).first()).toBeVisible();
     await expect(page.getByText(/immediate activation/i).first()).toBeVisible();
 
     const requestPlanButton = page.getByRole("button", { name: /request plan/i }).first();
@@ -100,7 +100,7 @@ test.describe("Student mutable economy actions", () => {
       ).toBeVisible();
       await expect(page.getByText(/subscription orders/i).first()).toBeVisible();
       await expect(
-        page.getByText(/whether your chosen plan is still only requested, already processed, or fully linked to wallet credit activity/i).first(),
+        page.getByText(/whether your chosen plan is requested, processed, or fully linked to wallet credit activity/i).first(),
       ).toBeVisible();
       await expectAnyVisible(page, [
         /pending credit/i,
@@ -173,15 +173,16 @@ test.describe("Student mutable economy actions", () => {
 
     await loginAsRole(page, "admin");
     await expectAdminWorkspace(page);
-    await page.goto("/admin/economy");
+    await page.goto("/admin/economy?tab=support-ops&focus=student-support");
     await expect(page.getByRole("heading", { name: /economy/i }).first()).toBeVisible();
 
     const supportCard = supportActionsCard(page);
     await expect(supportCard).toBeVisible();
 
-    const studentSelect = supportCard.locator("select").first();
+    const studentSelect = supportCard.getByLabel(/^student$/i);
     await expect(studentSelect).toBeVisible();
     await studentSelect.selectOption(studentId);
+    await supportCard.getByLabel(/^support view$/i).selectOption("orders");
 
     const operatorQueuePanel = page.locator(".dashboardPanel").filter({
       has: page.getByRole("heading", { name: /pending order requests for the selected student/i }),
@@ -256,11 +257,11 @@ test.describe("Student mutable economy actions", () => {
     await loginAsRole(page, "admin");
     await expectAdminWorkspace(page);
 
-    await page.goto("/admin/economy");
+    await page.goto("/admin/economy?tab=support-ops&focus=student-support");
     await expect(page.getByRole("heading", { name: /economy/i }).first()).toBeVisible();
     const supportCard = supportActionsCard(page);
     await expect(supportCard).toBeVisible();
-    const studentSelect = supportCard.locator("select").first();
+    const studentSelect = supportCard.getByLabel(/^student$/i);
     await studentSelect.selectOption(studentId);
 
     const grantAmount = 6;

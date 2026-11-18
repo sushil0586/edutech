@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   fetchCurrentAccountProfile,
   getSessionAccessToken,
+  hasPortalRole,
 } from "@/lib/auth/session";
 
 const API_BASE_URL = (
@@ -23,7 +24,7 @@ export async function POST(
     );
   }
 
-  if (!profile || profile.role !== "student" || !accessToken) {
+  if (!hasPortalRole(profile, "student") || !accessToken) {
     return NextResponse.json(
       { error: "Student session is not available." },
       { status: 401 },

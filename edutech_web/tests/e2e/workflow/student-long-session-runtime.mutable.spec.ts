@@ -98,6 +98,18 @@ async function linkExamQuestion(
 }
 
 async function currentToolbarValue(page: Page, label: RegExp) {
+  if (label.test("last confirmed save")) {
+    return (
+      (await page
+        .locator(".attemptResiliencePanel")
+        .filter({ has: page.getByText(/^last confirmed backend response$/i) })
+        .locator("strong")
+        .first()
+        .textContent()
+        .catch(() => "")) ?? ""
+    ).trim();
+  }
+
   return (
     (await page
       .locator(".attemptToolbar .examStateSummary")

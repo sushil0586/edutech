@@ -38,6 +38,18 @@ async function backendAccessToken(page: Page) {
   return accessToken;
 }
 
+async function confirmedBackendSaveValue(page: Page) {
+  return (
+    (await page
+      .locator(".attemptResiliencePanel")
+      .filter({ has: page.getByText(/^last confirmed backend response$/i) })
+      .locator("strong")
+      .first()
+      .textContent()
+      .catch(() => "")) ?? ""
+  ).trim();
+}
+
 async function createExamSection(
   page: Page,
   examId: string,

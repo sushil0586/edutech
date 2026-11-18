@@ -589,7 +589,7 @@ test.describe("Student mutable descriptive result storytelling", () => {
       await expect(page).toHaveURL(/\/app\/analytics(?:\?.*)?$/);
       await expect(page.getByRole("heading", { name: /analytics/i }).first()).toBeVisible();
       await expect(page.getByText(/recent published results/i).first()).toBeVisible();
-      await expect(page.getByText(new RegExp(escapeRegExp(examTitle), "i")).first()).toBeVisible();
+      await expect(page.getByText(new RegExp(escapeRegExp(examCode), "i")).first()).toBeVisible();
     } finally {
       const instituteAccessToken = examId || questionId
         ? await getInstituteCleanupAccessToken(page)

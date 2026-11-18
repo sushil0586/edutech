@@ -112,7 +112,7 @@ const detailPageContent: Record<
     accent: "rose",
     stats: [
       { label: "Content formats", value: "Multi-layer", note: "Guides, walkthroughs, FAQs, and readiness references can sit beside product use." },
-      { label: "Support reach", value: "Always-on", note: "Learners and institutes can self-serve more confidently with the right context." },
+      { label: "Support reach", value: "Always-on", note: "Learners and institutes can move more confidently with the right guided context." },
       { label: "Product education", value: "Embedded", note: "Resources become part of activation instead of a disconnected help center." },
     ],
     pillars: [

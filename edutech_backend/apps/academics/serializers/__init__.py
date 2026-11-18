@@ -43,7 +43,7 @@ class AssessmentFamilyListSerializer(serializers.ModelSerializer):
     allowed_question_types = serializers.SerializerMethodField()
     scoring_defaults = serializers.SerializerMethodField()
 
-    def get_allowed_question_types(self, obj):
+    def get_allowed_question_types(self, obj) -> list:
         contract = merge_assessment_family_contract(
             family_code=getattr(obj, "code", None),
             allowed_question_types=getattr(obj, "allowed_question_types", []),
@@ -51,7 +51,7 @@ class AssessmentFamilyListSerializer(serializers.ModelSerializer):
         )
         return contract["allowed_question_types"]
 
-    def get_scoring_defaults(self, obj):
+    def get_scoring_defaults(self, obj) -> dict:
         contract = merge_assessment_family_contract(
             family_code=getattr(obj, "code", None),
             allowed_question_types=getattr(obj, "allowed_question_types", []),
@@ -82,15 +82,15 @@ class ProgramSerializer(serializers.ModelSerializer):
     assessment_family_label = serializers.SerializerMethodField()
     assessment_family_profile = serializers.SerializerMethodField()
 
-    def get_assessment_family_code(self, obj):
+    def get_assessment_family_code(self, obj) -> str | None:
         family = getattr(obj, "assessment_family", None)
         return family.code if family is not None else None
 
-    def get_assessment_family_label(self, obj):
+    def get_assessment_family_label(self, obj) -> str | None:
         family = getattr(obj, "assessment_family", None)
         return family.label if family is not None else None
 
-    def get_assessment_family_profile(self, obj):
+    def get_assessment_family_profile(self, obj) -> dict | None:
         family = getattr(obj, "assessment_family", None)
         if family is None:
             return None
@@ -106,15 +106,15 @@ class ProgramListSerializer(serializers.ModelSerializer):
     assessment_family_label = serializers.SerializerMethodField()
     assessment_family_profile = serializers.SerializerMethodField()
 
-    def get_assessment_family_code(self, obj):
+    def get_assessment_family_code(self, obj) -> str | None:
         family = getattr(obj, "assessment_family", None)
         return family.code if family is not None else None
 
-    def get_assessment_family_label(self, obj):
+    def get_assessment_family_label(self, obj) -> str | None:
         family = getattr(obj, "assessment_family", None)
         return family.label if family is not None else None
 
-    def get_assessment_family_profile(self, obj):
+    def get_assessment_family_profile(self, obj) -> dict | None:
         family = getattr(obj, "assessment_family", None)
         if family is None:
             return None
@@ -186,7 +186,7 @@ class SubjectListSerializer(serializers.ModelSerializer):
     active_question_count = serializers.IntegerField(read_only=True)
     difficulty_inventory = serializers.SerializerMethodField()
 
-    def get_difficulty_inventory(self, obj):
+    def get_difficulty_inventory(self, obj) -> dict:
         return {
             "foundation": int(getattr(obj, "foundation_question_count", 0) or 0),
             "intermediate": int(getattr(obj, "intermediate_question_count", 0) or 0),
@@ -220,7 +220,7 @@ class TopicListSerializer(serializers.ModelSerializer):
     active_question_count = serializers.IntegerField(read_only=True)
     difficulty_inventory = serializers.SerializerMethodField()
 
-    def get_difficulty_inventory(self, obj):
+    def get_difficulty_inventory(self, obj) -> dict:
         return {
             "foundation": int(getattr(obj, "foundation_question_count", 0) or 0),
             "intermediate": int(getattr(obj, "intermediate_question_count", 0) or 0),

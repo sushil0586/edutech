@@ -1150,7 +1150,7 @@ export function AcademicPresetApplyWorkspace({
               <div className="adminAcademicSummaryRailCopy">
                 <strong>Preset scope</strong>
                 <span className="setupFieldMeta">
-                  Review the seeded footprint before previewing or applying.
+                  Review the preset scope before previewing or applying.
                 </span>
               </div>
               <span className="setupFieldMeta">{presetDetail.subject_count} subjects</span>

@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthenticatedSession, hasRequiredRole } from "@/lib/auth/session";
+import {
+  PORTAL_ROLE_GROUPS,
+  getAuthenticatedSession,
+  hasPortalRole,
+  hasRequiredRole,
+} from "@/lib/auth/session";
 
 const API_BASE_URL = (
   process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? ""
@@ -12,9 +17,9 @@ const RESOURCE_PATHS: Record<string, string> = {
 
 function ensureInstituteScope(
   instituteId: unknown,
-  session: Awaited<ReturnType<typeof getAuthenticatedSession>>,
+  session: NonNullable<Awaited<ReturnType<typeof getAuthenticatedSession>>>,
 ) {
-  if (!session || session.profile.role !== "institute_admin") {
+  if (!hasPortalRole(session?.profile, "institute_admin")) {
     return null;
   }
 
@@ -55,7 +60,10 @@ export async function POST(
   }
 
   const session = await getAuthenticatedSession();
-  if (!session || !hasRequiredRole(session.profile, ["platform_admin", "institute_admin"])) {
+  if (
+    !session ||
+    !hasRequiredRole(session.profile, PORTAL_ROLE_GROUPS.instituteOrPlatformAdmin)
+  ) {
     return NextResponse.json({ detail: "Portal session is not available." }, { status: 401 });
   }
 

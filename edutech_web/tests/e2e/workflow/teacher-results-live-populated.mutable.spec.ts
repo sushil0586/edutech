@@ -10,6 +10,11 @@ import {
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
 import {
+  fetchStudentAcademicContext,
+  selectAcademicDependencyChain,
+  selectOptionStartingWithLabel,
+} from "../helpers/question-bank-academics";
+import {
   expectStudentWorkspace,
   expectTeacherWorkspace,
 } from "../helpers/navigation";

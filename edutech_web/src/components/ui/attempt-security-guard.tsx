@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   StudentIntegritySummary,
   StudentSecurityPolicy,
 } from "@/features/dashboard/types";
+import { ATTEMPT_ACTION_EVENT } from "@/components/ui/attempt-action-form";
 import { StatusPill } from "@/components/ui/status-pill";
 
 type IntegrityEventResponse = {
@@ -68,6 +70,7 @@ export function AttemptSecurityGuard({
   securityPolicy: StudentSecurityPolicy;
   initialIntegritySummary: StudentIntegritySummary;
 }) {
+  const router = useRouter();
   const [integritySummary, setIntegritySummary] = useState(initialIntegritySummary);
   const [fullscreenSupported] = useState(() => browserSupportsFullscreen());
   const [isFullscreenActive, setIsFullscreenActive] = useState(
@@ -76,6 +79,8 @@ export function AttemptSecurityGuard({
   const [notice, setNotice] = useState<string | null>(null);
   const recentEventTimes = useRef<Record<string, number>>({});
   const lastFullscreenState = useRef(false);
+  const attemptActionInFlight = useRef(false);
+  const pageIsLeaving = useRef(false);
 
   const monitoringEnabled = useMemo(
     () =>
@@ -98,10 +103,49 @@ export function AttemptSecurityGuard({
       ? "This attempt is paused at a security checkpoint until fullscreen mode is active."
       : securityPolicy.student_warning_copy);
 
+  useEffect(() => {
+    attemptActionInFlight.current = false;
+    pageIsLeaving.current = false;
+  }, [attemptId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    function handleAttemptAction(event: Event) {
+      const payload = (event as CustomEvent<{ attemptId?: string }>).detail;
+      if (payload?.attemptId === attemptId) {
+        attemptActionInFlight.current = true;
+      }
+    }
+
+    function handlePageHide() {
+      pageIsLeaving.current = true;
+    }
+
+    window.addEventListener(ATTEMPT_ACTION_EVENT, handleAttemptAction);
+    window.addEventListener("pagehide", handlePageHide);
+
+    return () => {
+      window.removeEventListener(ATTEMPT_ACTION_EVENT, handleAttemptAction);
+      window.removeEventListener("pagehide", handlePageHide);
+    };
+  }, [attemptId]);
+
+
   const reportEvent = useCallback(async (
     eventType: string,
     metadata: Record<string, unknown> = {},
   ) => {
+    if (
+      attemptStatus !== "in_progress" ||
+      attemptActionInFlight.current ||
+      pageIsLeaving.current
+    ) {
+      return;
+    }
+
     const now = Date.now();
     const previous = recentEventTimes.current[eventType] ?? 0;
     if (now - previous < 2500) {
@@ -134,7 +178,7 @@ export function AttemptSecurityGuard({
       }
 
       if (payload.data?.auto_submitted || payload.data?.attempt_status !== "in_progress") {
-        window.location.assign(
+        router.push(
           `/app/attempts/${attemptId}/summary?notice=${encodeURIComponent("Attempt auto-submitted after integrity warning threshold was reached.")}`,
         );
       }
@@ -145,7 +189,7 @@ export function AttemptSecurityGuard({
           : "Unable to sync integrity status right now.";
       setNotice(message);
     }
-  }, [attemptId]);
+  }, [attemptId, attemptStatus, router]);
 
   async function enterFullscreen() {
     try {
@@ -178,6 +222,8 @@ export function AttemptSecurityGuard({
 
     const handleVisibilityChange = () => {
       if (
+        !attemptActionInFlight.current &&
+        !pageIsLeaving.current &&
         document.visibilityState === "hidden" &&
         securityPolicy.tracks_visibility_change
       ) {
@@ -190,6 +236,8 @@ export function AttemptSecurityGuard({
 
     const handleWindowBlur = () => {
       if (
+        !attemptActionInFlight.current &&
+        !pageIsLeaving.current &&
         securityPolicy.tracks_focus_loss &&
         document.visibilityState === "visible"
       ) {
@@ -204,6 +252,8 @@ export function AttemptSecurityGuard({
       const inFullscreen = Boolean(document.fullscreenElement);
       setIsFullscreenActive(inFullscreen);
       if (
+        !attemptActionInFlight.current &&
+        !pageIsLeaving.current &&
         !inFullscreen &&
         lastFullscreenState.current &&
         securityPolicy.tracks_fullscreen_exit

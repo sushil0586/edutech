@@ -594,7 +594,9 @@ export function InstituteEconomyWorkspace({
     }
   }
 
-  const pendingOrders = resolvedStudentId
+  // eslint-disable-next-line react-hooks/refs
+  const hasOrdersForStudent = resolvedStudentId ? ordersCacheRef.current.has(resolvedStudentId) : false;
+  const pendingOrders = hasOrdersForStudent
     ? orders.filter((order) => ["pending", "processing"].includes(order.status))
     : [];
   const ordersLoadedForStudent = resolvedStudentId

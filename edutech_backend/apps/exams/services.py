@@ -489,6 +489,11 @@ def _active_exam_access_slots(exam):
     cached_slots = getattr(exam, "_active_exam_access_slots_cache", None)
     if cached_slots is not None:
         return cached_slots
+    prefetched_slots = getattr(exam, "_prefetched_active_access_slots", None)
+    if prefetched_slots is not None:
+        slots = list(prefetched_slots)
+        setattr(exam, "_active_exam_access_slots_cache", slots)
+        return slots
     slots = list(
         exam.access_slots.filter(
             is_active=True,
@@ -527,6 +532,16 @@ def resolve_student_exam_slot(exam, student):
         and direct_assignment.access_slot.is_active
         and direct_assignment.access_slot.status == "active"
     ):
+        prefetched_slot = next(
+            (
+                slot
+                for slot in _active_exam_access_slots(exam)
+                if slot.id == direct_assignment.access_slot_id
+            ),
+            None,
+        )
+        if prefetched_slot is not None:
+            return prefetched_slot
         return direct_assignment.access_slot
 
     matching_cohort_slot = next(
@@ -928,11 +943,16 @@ def resolve_exam_start_access(
 
 
 def summarize_exam_slot_occupancy(slot):
-    assignment_count = slot.student_assignments.filter(is_active=True).count()
-    active_attempt_count = slot.attempts.filter(
-        is_active=True,
-        status="in_progress",
-    ).count()
+    assignment_count = getattr(slot, "active_assignment_count", None)
+    if assignment_count is None:
+        assignment_count = slot.student_assignments.filter(is_active=True).count()
+
+    active_attempt_count = getattr(slot, "active_attempt_count", None)
+    if active_attempt_count is None:
+        active_attempt_count = slot.attempts.filter(
+            is_active=True,
+            status="in_progress",
+        ).count()
 
     assignment_capacity = slot.assignment_capacity
     start_capacity = slot.start_capacity
@@ -1222,11 +1242,12 @@ def build_exam_content_target(exam):
     }
 
 
-def resolve_exam_economy_access(student, exam, *, granted_by=None):
+def resolve_exam_economy_access(student, exam, *, granted_by=None, persist_unlock_state=True):
     from apps.economy.models import AccessPolicyType, UnlockStateStatus
     from apps.economy.services import (
         SPONSORED_COMMERCIAL_PATHS,
         evaluate_and_sync_unlock_state,
+        evaluate_unlock_state_read_only,
         resolve_access_policy_commercial_path,
         resolve_content_access_policy,
         resolve_student_exam_subscription_allowance,
@@ -1305,14 +1326,23 @@ def resolve_exam_economy_access(student, exam, *, granted_by=None):
         }
 
     if access_policy is not None:
-        unlock_state = evaluate_and_sync_unlock_state(
-            student=student,
-            content_type=target["content_type"],
-            content_key=target["content_key"],
-            subject=target["subject"],
-            granted_by=granted_by,
-            access_policy=access_policy,
-        )
+        if persist_unlock_state:
+            unlock_state = evaluate_and_sync_unlock_state(
+                student=student,
+                content_type=target["content_type"],
+                content_key=target["content_key"],
+                subject=target["subject"],
+                granted_by=granted_by,
+                access_policy=access_policy,
+            )
+        else:
+            unlock_state = evaluate_unlock_state_read_only(
+                student=student,
+                content_type=target["content_type"],
+                content_key=target["content_key"],
+                subject=target["subject"],
+                access_policy=access_policy,
+            )
 
     requires_unlock = bool(
         access_policy is not None and access_policy.policy_type != AccessPolicyType.FREE
@@ -3352,7 +3382,7 @@ def _record_status_change(exam, *, old_status, new_status, changed_by=None, rema
 @transaction.atomic
 def refresh_exam_status(exam, *, at_time=None, changed_by=None, remarks=""):
     current_time = at_time or timezone.now()
-    if exam.status in {"draft", "cancelled"}:
+    if exam.status in {"draft", "cancelled", "completed"}:
         return exam
 
     next_status = exam.status

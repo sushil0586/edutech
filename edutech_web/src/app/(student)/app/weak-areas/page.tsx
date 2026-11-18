@@ -185,7 +185,7 @@ async function loadWeakAreas() {
     const summary = await fetchStudentInsightSummary();
     const [topicPerformanceResponse, exams] = await Promise.all([
       fetchStudentTopicPerformance(summary.student_id),
-      fetchStudentAvailableExams(),
+      fetchStudentAvailableExams({ examType: "practice" }),
     ]);
 
     return {

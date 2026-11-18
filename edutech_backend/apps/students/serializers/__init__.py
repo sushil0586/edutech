@@ -39,7 +39,7 @@ class StudentProfileSerializer(CredentialStatusMixin, serializers.ModelSerialize
         )
         read_only_fields = ("full_name",)
 
-    def get_accommodation_profile(self, obj):
+    def get_accommodation_profile(self, obj) -> dict:
         return obj.normalized_accommodation_profile()
 
     def validate(self, attrs):

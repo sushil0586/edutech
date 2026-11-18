@@ -8,7 +8,13 @@ import {
   fetchTopics,
 } from "../helpers/assessment-family";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
+import { markExamCompleted } from "../helpers/family-runtime";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
+import {
+  fetchStudentAcademicContext,
+  selectAcademicDependencyChain,
+  selectOptionStartingWithLabel,
+} from "../helpers/question-bank-academics";
 import {
   expectStudentWorkspace,
   expectTeacherWorkspace,
@@ -424,6 +430,7 @@ test.describe("Teacher populated analysis mutable coverage", () => {
 
       await loginAsRole(page, "teacher");
       await expectTeacherWorkspace(page);
+      await markExamCompleted(page, examId);
       await page.goto(`/teacher/results?exam=${examId}`);
       logCheckpoint(startedAt, "teacher results opened");
       const markCompletedButton = page.getByRole("button", { name: /mark exam completed/i });

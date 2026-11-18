@@ -1195,6 +1195,10 @@ export async function answerAndSubmitCurrentAttempt(
   examTitle: string,
 ) {
   await answerCurrentAttemptQuestion(page, uniqueSeed, prefix);
+  await page.getByRole("button", { name: /^save answer$/i }).click();
+  await expect(page.getByText(/1 saved|response updated successfully/i).first()).toBeVisible({
+    timeout: 30000,
+  });
 
   const attemptUrl = page.url().split("?")[0] ?? page.url();
   const attemptId = attemptUrl.match(/\/app\/attempts\/([^/?#]+)/)?.[1] ?? null;

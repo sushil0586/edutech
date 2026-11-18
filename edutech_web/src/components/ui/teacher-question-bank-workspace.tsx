@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { formatTopicOptionLabel, sortTopicOptions } from "@/lib/academics/topic-options";
+import { summarizeFamilyScoringDefaults } from "@/lib/assessment/family-profile";
 import { buildQuestionTypePresentationProfile } from "@/lib/assessment/question-type-presentation";
 import type {
   LookupProgram,
@@ -510,16 +511,7 @@ function summarizeWorkspaceFamilyScoring(scoringDefaults: Record<string, unknown
   if (!scoringDefaults || typeof scoringDefaults !== "object") {
     return "Use the filter set to narrow the bank to the response formats your target exam expects.";
   }
-
-  const negativeMarkingEnabled = Boolean(scoringDefaults.negative_marking_default);
-  const supportsNumericEntry = Boolean(scoringDefaults.supports_numeric_entry);
-
-  return [
-    negativeMarkingEnabled ? "This family usually attaches to negative-marking exams." : "This family usually attaches to no-penalty exams.",
-    supportsNumericEntry ? "Numeric-entry coverage is part of the expected bank shape." : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  return summarizeFamilyScoringDefaults(scoringDefaults, "question_bank");
 }
 
 function renderAttachmentPreview(attachment: TeacherQuestion["attachments"][number]) {
@@ -735,6 +727,7 @@ export function TeacherQuestionBankWorkspace({
   const [loadingQuestionIds, setLoadingQuestionIds] = useState<string[]>([]);
   const [detailErrors, setDetailErrors] = useState<Record<string, string>>({});
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
+  const [expandedQuestionIds, setExpandedQuestionIds] = useState<string[]>([]);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [statusFilter, setStatusFilter] = useState("");
   const [sharedLibraryFilter, setSharedLibraryFilter] = useState("");
@@ -929,6 +922,7 @@ export function TeacherQuestionBankWorkspace({
     }
 
     setFavoriteIds(readStoredArray(`${storageKeyPrefix}-favorites`));
+    setExpandedQuestionIds(readStoredArray(`${storageKeyPrefix}-expanded-details`));
     setRecentTopicIds(readStoredArray(`${storageKeyPrefix}-recent-topics`));
     setShowFavoritesOnly(
       window.localStorage.getItem(`${storageKeyPrefix}-favorites-only`) === "true",
@@ -968,6 +962,17 @@ export function TeacherQuestionBankWorkspace({
       JSON.stringify(favoriteIds),
     );
   }, [favoriteIds, hasLoadedPreferences, isBrowser, storageKeyPrefix]);
+
+  useEffect(() => {
+    if (!isBrowser || !hasLoadedPreferences) {
+      return;
+    }
+
+    window.localStorage.setItem(
+      `${storageKeyPrefix}-expanded-details`,
+      JSON.stringify(expandedQuestionIds),
+    );
+  }, [expandedQuestionIds, hasLoadedPreferences, isBrowser, storageKeyPrefix]);
 
   useEffect(() => {
     if (!previewQuestionId) {
@@ -3043,13 +3048,23 @@ export function TeacherQuestionBankWorkspace({
                   </div>
 
                   {!isCompact ? (
-                    <details className="questionBankDetails">
-                      <summary
-                        onClick={() => {
-                          if (!questionDetailsById[question.id] && !isLoadingQuestionDetail(question.id)) {
-                            void ensureQuestionDetail(question.id);
+                    <details
+                      className="questionBankDetails"
+                      onToggle={(event) => {
+                        const isOpen = event.currentTarget.open;
+                        setExpandedQuestionIds((current) => {
+                          if (isOpen) {
+                            return current.includes(question.id) ? current : [...current, question.id];
                           }
-                        }}
+                          return current.filter((id) => id !== question.id);
+                        });
+                        if (isOpen && !questionDetailsById[question.id] && !isLoadingQuestionDetail(question.id)) {
+                          void ensureQuestionDetail(question.id);
+                        }
+                      }}
+                      open={expandedQuestionIds.includes(question.id)}
+                    >
+                      <summary
                       >
                         View full review
                       </summary>

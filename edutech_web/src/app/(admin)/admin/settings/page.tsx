@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { EconomyPolicySettingsCard } from "@/components/admin/economy-policy-settings-card";
+import type { EconomyPolicyAuditEntry, EconomyPolicyConfig } from "@/features/dashboard/types";
 import { PlatformAdminPageHeader } from "@/components/ui/platform-admin-page-header";
 import { fetchPortalCount, fetchPortalList, fetchPortalListAll, fetchPortalRecord } from "@/lib/api/portal";
 import { requirePlatformAdminSession } from "@/lib/auth/session";
@@ -13,42 +14,6 @@ type InstituteRecord = {
   country: string;
   is_active: boolean;
   exam_defaults: Record<string, unknown>;
-};
-
-type EconomyPolicyConfig = {
-  id: string;
-  singleton_key: string;
-  institute_admin_can_confirm_orders: boolean;
-  institute_admin_max_confirm_order_amount: string;
-  institute_admin_confirm_order_currency: string;
-  institute_admin_can_grant_stars: boolean;
-  institute_admin_max_grant_stars: number;
-  latest_audit: {
-    id: string;
-    action: string;
-    message: string;
-    user: number | null;
-    user_label: string | null;
-    created_at: string;
-    metadata: Record<string, unknown>;
-  } | null;
-  created_at: string;
-  updated_at: string;
-  is_active: boolean;
-};
-
-type EconomyPolicyAuditEntry = {
-  id: string;
-  user: number | null;
-  user_label: string | null;
-  action: string;
-  entity_type: string;
-  entity_id: string;
-  message: string;
-  metadata: {
-    changed_fields?: Record<string, { before: unknown; after: unknown }>;
-  };
-  created_at: string;
 };
 
 async function loadCount(path: string) {

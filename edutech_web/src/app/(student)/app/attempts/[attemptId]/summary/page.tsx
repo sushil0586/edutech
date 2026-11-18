@@ -146,7 +146,7 @@ async function loadAttemptSummary(attemptId: string) {
   try {
     const [summary, exams] = await Promise.all([
       fetchStudentAttemptSummary(attemptId),
-      fetchStudentAvailableExams(),
+      fetchStudentAvailableExams({ examType: "practice" }),
     ]);
     return {
       source: "live" as const,
@@ -408,17 +408,21 @@ export default async function AttemptSummaryPage({
 
         <article className="contentCard">
           <div className="sectionHeading">
-            <strong>Next Step</strong>
+            <strong>What To Do Next</strong>
             <StatusPill tone="default">{attemptExperienceLabel(summary.exam_type)}</StatusPill>
           </div>
           <div className="studentInsightMessageStack">
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
-              <p>{stateCopy.helper}</p>
+              <p>{stateCopy.progress}</p>
             </div>
             <div className="studentInsightMessage">
               <span className="placeholderDot" aria-hidden="true" />
-              <p>{stateCopy.progress}</p>
+              <p>
+                {summary.review_available
+                  ? "Open answer review first if you want question-level feedback before moving into another set."
+                  : "Open results first if they are visible, then continue into the recommended practice lane."}
+              </p>
             </div>
           </div>
           <div className="studentInsightHeroActions">

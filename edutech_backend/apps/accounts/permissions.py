@@ -9,6 +9,8 @@ from apps.accounts.capabilities import (
     can_view_academics,
     can_view_analytics,
 )
+from apps.accounts.models import AccountRole
+from apps.accounts.policies import has_active_role
 
 
 def _account_profile(user):
@@ -18,41 +20,37 @@ def _account_profile(user):
 class IsPlatformAdmin(BasePermission):
     def has_permission(self, request, view):
         profile = _account_profile(request.user)
-        return bool(profile and profile.role == "platform_admin" and profile.is_active)
+        return has_active_role(profile, AccountRole.PLATFORM_ADMIN)
 
 
 class IsInstituteAdmin(BasePermission):
     def has_permission(self, request, view):
         profile = _account_profile(request.user)
-        return bool(profile and profile.role == "institute_admin" and profile.is_active)
+        return has_active_role(profile, AccountRole.INSTITUTE_ADMIN)
 
 
 class IsPlatformOrInstituteAdmin(BasePermission):
     def has_permission(self, request, view):
         profile = _account_profile(request.user)
-        return bool(
-            profile
-            and profile.is_active
-            and profile.role in {"platform_admin", "institute_admin"}
-        )
+        return has_active_role(profile, AccountRole.PLATFORM_ADMIN, AccountRole.INSTITUTE_ADMIN)
 
 
 class IsTeacher(BasePermission):
     def has_permission(self, request, view):
         profile = _account_profile(request.user)
-        return bool(profile and profile.role == "teacher" and profile.is_active)
+        return has_active_role(profile, AccountRole.TEACHER)
 
 
 class IsStudent(BasePermission):
     def has_permission(self, request, view):
         profile = _account_profile(request.user)
-        return bool(profile and profile.role == "student" and profile.is_active)
+        return has_active_role(profile, AccountRole.STUDENT)
 
 
 class IsParent(BasePermission):
     def has_permission(self, request, view):
         profile = _account_profile(request.user)
-        return bool(profile and profile.role == "parent" and profile.is_active)
+        return has_active_role(profile, AccountRole.PARENT)
 
 
 class IsSameInstituteUser(BasePermission):
@@ -60,7 +58,7 @@ class IsSameInstituteUser(BasePermission):
         profile = _account_profile(request.user)
         if not profile or not profile.is_active:
             return False
-        if profile.role == "platform_admin":
+        if profile.role == AccountRole.PLATFORM_ADMIN:
             return True
         institute_id = getattr(profile.institute, "id", None)
         object_institute_id = getattr(getattr(obj, "institute", None), "id", None) or getattr(
@@ -72,10 +70,11 @@ class IsSameInstituteUser(BasePermission):
 class IsTeacherOrInstituteAdmin(BasePermission):
     def has_permission(self, request, view):
         profile = _account_profile(request.user)
-        return bool(
-            profile
-            and profile.is_active
-            and profile.role in {"teacher", "institute_admin", "platform_admin"}
+        return has_active_role(
+            profile,
+            AccountRole.TEACHER,
+            AccountRole.INSTITUTE_ADMIN,
+            AccountRole.PLATFORM_ADMIN,
         )
 
 
@@ -119,9 +118,9 @@ class IsStudentOwnerOrInstituteAdmin(BasePermission):
         profile = _account_profile(request.user)
         if not profile or not profile.is_active:
             return False
-        if profile.role in {"platform_admin", "institute_admin"}:
+        if profile.role in {AccountRole.PLATFORM_ADMIN, AccountRole.INSTITUTE_ADMIN}:
             return True
-        if profile.role != "student" or profile.student_profile_id is None:
+        if profile.role != AccountRole.STUDENT or profile.student_profile_id is None:
             return False
         object_student_id = getattr(getattr(obj, "student", None), "id", None) or getattr(
             obj, "student_id", None

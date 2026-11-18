@@ -102,12 +102,35 @@ function createProfileSnapshot(user: Record<string, unknown> | undefined) {
       institute_name: user.institute_name == null ? null : String(user.institute_name),
       student_profile: user.student_profile == null ? null : String(user.student_profile),
       teacher_profile: user.teacher_profile == null ? null : String(user.teacher_profile),
+      registration_context:
+        user.registration_context && typeof user.registration_context === "object" ? user.registration_context : undefined,
+      student_context:
+        user.student_context && typeof user.student_context === "object" ? user.student_context : null,
+      parent_context: user.parent_context && typeof user.parent_context === "object" ? user.parent_context : null,
       onboarding_status: user.onboarding_status == null ? undefined : String(user.onboarding_status),
       profile_completion_required: Boolean(user.profile_completion_required),
       onboarding_role: user.onboarding_role == null ? undefined : String(user.onboarding_role),
       is_active: Boolean(user.is_active ?? true),
     }),
   );
+}
+
+async function fetchHydratedProfileSnapshot(page: Page, access: string, fallbackUser: Record<string, unknown> | undefined) {
+  try {
+    const response = await page.request.get(`${backendBaseUrl}/api/v1/auth/me/`, {
+      headers: {
+        Authorization: `Bearer ${access}`,
+        "Content-Type": "application/json",
+      },
+      timeout: 15000,
+    });
+    if (response.ok()) {
+      return createProfileSnapshot((await response.json()) as Record<string, unknown>);
+    }
+  } catch {
+    // A reduced login payload is still enough for non-student workspaces.
+  }
+  return createProfileSnapshot(fallbackUser);
 }
 
 async function fetchSessionTokensFromBackend(
@@ -189,7 +212,7 @@ async function fetchSessionTokensFromBackend(
       tokens: {
         access,
         refresh,
-        profileSnapshot: createProfileSnapshot(payload.user),
+        profileSnapshot: await fetchHydratedProfileSnapshot(page, access, payload.user),
       },
       throttledMessage,
     };

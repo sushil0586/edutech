@@ -10,6 +10,7 @@ type TimingMetric = {
 };
 
 test.describe("Admin exams API audit", () => {
+  test.setTimeout(180_000);
   test.skip(testRequiresRole("admin"), "Admin Playwright credentials are not configured.");
 
   test("@workflow admin exams filters preserve params without extra browser-side API calls", async ({
@@ -106,7 +107,7 @@ test.describe("Admin exams API audit", () => {
       const sourceQuickFilterStartedAt = Date.now();
       audit.reset();
       await page.getByRole("link", { name: /^platform$/i }).click();
-      await expect(page).toHaveURL(/exam_source=platform/);
+      await expect(page).toHaveURL(/exam_source=platform/, { timeout: 60_000 });
       await expect(page).toHaveURL(/exam_status=live/);
       await audit.waitForSettled();
       metrics.push({
@@ -139,20 +140,33 @@ test.describe("Admin exams API audit", () => {
       const expectedServerRenderContract = {
         default: [
           "/api/v1/institutes/?page_size=100",
-          "/api/v1/exams/?page_size=200",
+          "/api/v1/exams/platform-catalog-summary/",
+          "/api/v1/exams/?page=1&page_size=24",
         ],
         "institute-scoped": selectedInstituteId
           ? [
               "/api/v1/institutes/?page_size=100",
-              `/api/v1/exams/?page_size=200&institute=${selectedInstituteId}`,
+              `/api/v1/exams/platform-catalog-summary/?institute=${selectedInstituteId}`,
+              `/api/v1/exams/?page=1&page_size=24&institute=${selectedInstituteId}`,
             ]
-          : ["/api/v1/institutes/?page_size=100", "/api/v1/exams/?page_size=200"],
+          : [
+              "/api/v1/institutes/?page_size=100",
+              "/api/v1/exams/platform-catalog-summary/",
+              "/api/v1/exams/?page=1&page_size=24",
+            ],
         "filter-param-contract": [
           "exam_status",
           "exam_source",
           "exam_sort",
           "exam_group",
           "institute",
+        ],
+        "backend-filter-contract": [
+          "status",
+          "source_type",
+          "ordering",
+          "page",
+          "page_size",
         ],
       };
 

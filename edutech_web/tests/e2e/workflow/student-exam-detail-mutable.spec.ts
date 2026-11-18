@@ -451,7 +451,7 @@ test.describe("Student mutable exam detail blocked-state flow", () => {
     const now = new Date();
     const startAt = new Date(now.getTime() - 60 * 60 * 1000);
     const endAt = new Date(now.getTime() + 2 * 60 * 60 * 1000);
-    const starCost = "7";
+    const starCost = "1000000";
 
     try {
       await loginAsRole(page, "student");

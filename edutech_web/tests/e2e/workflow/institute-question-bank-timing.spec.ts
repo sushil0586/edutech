@@ -107,7 +107,7 @@ test.describe("Institute question bank timing", () => {
       label: "question-bank-import-open",
       metrics,
       action: async () => {
-        await page.getByRole("link", { name: /import questions csv/i }).click();
+        await page.getByRole("link", { name: /import questions(?: csv)?/i }).click();
       },
       assertVisible: async () => {
         await expect(page).toHaveURL(/\/institute\/question-bank\/import(?:\?.*)?$/);
@@ -120,7 +120,7 @@ test.describe("Institute question bank timing", () => {
       metrics,
       action: async () => {
         await page.goto("/institute/question-bank", { waitUntil: "domcontentloaded" });
-        await page.getByRole("link", { name: /create question/i }).click();
+        await page.getByRole("link", { name: /create question|new question/i }).click();
       },
       assertVisible: async () => {
         await expect(page).toHaveURL(/\/institute\/question-bank\/new(?:\?.*)?$/);

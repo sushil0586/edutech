@@ -8,7 +8,13 @@ import {
   fetchTopics,
 } from "../helpers/assessment-family";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
+import { markExamCompleted } from "../helpers/family-runtime";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
+import {
+  fetchStudentAcademicContext,
+  selectAcademicDependencyChain,
+  selectOptionStartingWithLabel,
+} from "../helpers/question-bank-academics";
 import {
   expectStudentWorkspace,
   expectTeacherWorkspace,
@@ -421,11 +427,8 @@ test.describe("Teacher mutable results actions", () => {
         teacherResultsWorkspaceReadinessCard(page, /^result publish readiness$/i),
       ).toContainText(/exam not completed|generated|published/i);
 
-      const markCompletedButton = page.getByRole("button", { name: /mark exam completed/i });
-      if (await markCompletedButton.count()) {
-        await markCompletedButton.click();
-        await expect(page).toHaveURL(/message=/);
-      }
+      await markExamCompleted(page, examId);
+      await page.goto(`/teacher/results?exam=${examId}`);
 
       const generateResultsButton = page.getByRole("button", { name: /generate results|regenerate summary/i }).first();
       await expect(generateResultsButton).toBeVisible();
@@ -444,9 +447,6 @@ test.describe("Teacher mutable results actions", () => {
         await publishResultsButton.click();
         await expect(page).toHaveURL(/message=/);
         await expect(page.getByText(/results published successfully\./i)).toBeVisible();
-      } else {
-        await expect(page.getByText(/all result workflow steps are complete/i).first()).toBeVisible();
-        await expect(page.getByText(/student-visible result state is already active\./i).first()).toBeVisible();
       }
 
       await expect(

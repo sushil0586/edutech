@@ -792,28 +792,40 @@ test.describe("Institute mutable multi-learner results distribution", () => {
       await expect(calculateRanksButton).toBeVisible();
       await calculateRanksButton.click();
       await expect
-        .poll(async () => /message=/.test(page.url()) || Boolean((await fetchInstituteLeaderboard(page, ensuredExamId)).summary.all_ranked))
+        .poll(async () => (await fetchInstituteLeaderboard(page, ensuredExamId)).summary.ranked_count, {
+          timeout: 15000,
+          message: `Expected leaderboard summary for exam ${ensuredExamId} to rank both learners.`,
+        })
+        .toBe(2);
+      await expect
+        .poll(async () => Boolean((await fetchInstituteLeaderboard(page, ensuredExamId)).summary.all_ranked), {
+          timeout: 15000,
+          message: `Expected leaderboard summary for exam ${ensuredExamId} to mark all learners ranked.`,
+        })
         .toBe(true);
 
       const publishResultsButton = page.getByRole("button", { name: /publish results/i }).first();
       if (await publishResultsButton.isVisible().catch(() => false)) {
         await publishResultsButton.click();
         await expect
-          .poll(
-            async () =>
-              /message=/.test(page.url()) ||
-              Boolean((await fetchInstituteLeaderboard(page, ensuredExamId)).summary.published_results),
-          )
+          .poll(async () => (await fetchInstituteLeaderboard(page, ensuredExamId)).summary.published_count, {
+            timeout: 15000,
+            message: `Expected leaderboard summary for exam ${ensuredExamId} to publish both learner results.`,
+          })
+          .toBe(2);
+        await expect
+          .poll(async () => Boolean((await fetchInstituteLeaderboard(page, ensuredExamId)).summary.published_results), {
+            timeout: 15000,
+            message: `Expected leaderboard summary for exam ${ensuredExamId} to confirm published results.`,
+          })
           .toBe(true);
       } else {
         await publishExamResultsViaApi(page, ensuredExamId);
         await expect
-          .poll(
-            async () =>
-              /message=/.test(page.url()) ||
-              Boolean((await fetchInstituteLeaderboard(page, ensuredExamId)).summary.published_results),
-            { timeout: 15000 },
-          )
+          .poll(async () => Boolean((await fetchInstituteLeaderboard(page, ensuredExamId)).summary.published_results), {
+            timeout: 15000,
+            message: `Expected leaderboard summary for exam ${ensuredExamId} to confirm published results.`,
+          })
           .toBe(true);
       }
 

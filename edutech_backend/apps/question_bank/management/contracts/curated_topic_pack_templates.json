@@ -1,0 +1,75 @@
+{
+  "default_template_batch": "curated_template_batch_v1",
+  "difficulty_distributions": {
+    "25": ["foundation", "foundation", "foundation", "foundation", "foundation", "intermediate", "intermediate", "intermediate", "intermediate", "intermediate", "intermediate", "intermediate", "intermediate", "intermediate", "intermediate", "advanced", "advanced", "advanced", "advanced", "advanced", "advanced", "advanced", "advanced", "advanced", "advanced"],
+    "50": ["foundation", "foundation", "foundation", "foundation", "foundation", "foundation", "foundation", "foundation", "foundation", "foundation", "intermediate", "intermediate", "intermediate", "intermediate", "intermediate", "intermediate", "intermediate", "intermediate", "intermediate", "intermediate", "intermediate", "intermediate", "intermediate", "intermediate", "intermediate", "intermediate", "intermediate", "intermediate", "intermediate", "intermediate", "advanced", "advanced", "advanced", "advanced", "advanced", "advanced", "advanced", "advanced", "advanced", "advanced", "advanced", "advanced", "advanced", "advanced", "advanced", "advanced", "advanced", "advanced", "advanced", "advanced"]
+  },
+  "subject_archetypes": {
+    "math": {
+      "foundation": [
+        "direct_concept_check",
+        "reading_check",
+        "simple_conversion",
+        "symbol_or_form_identification",
+        "basic_classification"
+      ],
+      "intermediate": [
+        "error_detection",
+        "compare_and_choose",
+        "words_to_figures",
+        "representation_selection",
+        "place_value_inference",
+        "expanded_form",
+        "ordering_reasoning",
+        "misconception_correction"
+      ],
+      "advanced": [
+        "case_based_interpretation",
+        "best_explanation",
+        "assertion_reason",
+        "multi_select_truth_evaluation",
+        "short_answer_reasoning",
+        "elimination_based_reasoning",
+        "cross_system_conversion",
+        "data_interpretation",
+        "worked_step_analysis",
+        "what_went_wrong",
+        "comparison_justification",
+        "rule_application"
+      ]
+    },
+    "science": {
+      "foundation": [
+        "classification",
+        "indicator_result",
+        "direct_concept_check",
+        "true_false_concept",
+        "familiar_example_identification"
+      ],
+      "intermediate": [
+        "observation_based_inference",
+        "daily_life_application",
+        "misconception_correction",
+        "compare_and_classify",
+        "concept_explanation",
+        "simple_experiment_reasoning",
+        "best_next_step",
+        "indicator_interpretation"
+      ],
+      "advanced": [
+        "experiment_interpretation",
+        "safety_reasoning",
+        "neutralization_application",
+        "assertion_reason",
+        "case_based_reasoning",
+        "best_explanation",
+        "multi_select_truth_evaluation",
+        "observation_chain_inference",
+        "evidence_based_choice",
+        "what_can_be_concluded",
+        "why_this_happens",
+        "decision_under_uncertainty"
+      ]
+    }
+  }
+}

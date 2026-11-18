@@ -10,6 +10,7 @@ import {
   buildQuestionImportSampleTemplates,
   type QuestionImportSampleTemplate,
 } from "@/lib/teacher/question-import-samples";
+import { QUESTION_IMPORT_TYPE_GUIDANCE } from "@/lib/teacher/question-import-contract";
 import { getQuestionBankFieldLabel } from "@/lib/teacher/question-bank-validation";
 
 type ImportFieldErrors = Partial<Record<"file", string>>;
@@ -469,10 +470,7 @@ export function TeacherQuestionImportWorkspace({
           <div>
             <strong>Type-specific columns</strong>
             <span>
-              Use <code>correct_answer</code> for MCQ and true/false rows. Use <code>accepted_answers</code>
-              for short-answer and numeric rows with pipe-separated values like <code>2.5|2.50</code>.
-              Use <code>numeric_tolerance</code> only for numeric rows and <code>review_guidance</code> only for essay manual-review rows.
-              Use <code>passage_title</code> and <code>passage_order</code> only when a question should link to an existing comprehension set.
+              {QUESTION_IMPORT_TYPE_GUIDANCE}
             </span>
           </div>
         </div>

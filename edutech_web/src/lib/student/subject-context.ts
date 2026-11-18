@@ -30,6 +30,7 @@ export type StudentTeacherSourceOption = {
 };
 
 type SubjectSummaryCarrier = {
+  is_multi_subject?: boolean | null;
   subject_name?: string | null;
   primary_subject_name?: string | null;
   section_subjects?: Array<{
@@ -258,12 +259,17 @@ export function getExamSubjectNames(exam: SubjectSummaryCarrier) {
 }
 
 export function getExamSubjectDisplayLabel(exam: SubjectSummaryCarrier) {
+  const subjectNames = getExamSubjectNames(exam);
+  if (exam.is_multi_subject && subjectNames.length > 1) {
+    return subjectNames.join(", ");
+  }
+
   const summaryLabel = exam.subject_summary?.display_label?.trim();
   if (summaryLabel) {
     return summaryLabel;
   }
 
-  return getExamSubjectNames(exam)[0] ?? "Subject pending";
+  return subjectNames[0] ?? "Subject pending";
 }
 
 export function matchesSelectedSource(

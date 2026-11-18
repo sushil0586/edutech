@@ -6,13 +6,17 @@ export const primaryNavigation = [
   { href: "/resources", label: "Resources" },
 ] as const;
 
+export const launchScopeStatement =
+  "Nexora's current public launch focuses on student learning journeys for school and competitive preparation, guided teacher access, and managed institute onboarding. Parent access remains limited-rollout, and institute setup is not positioned as fully self-serve.";
+
 export const homePageContent = {
+  launchScopeStatement,
   hero: {
     eyebrow: "India's complete learning platform",
     titleLeading: "Better Practice.",
     titleAccent: "Better Scores. Brighter Future.",
     description:
-      "Personalized study plans, topic-wise practice, weekly mock tests, performance analytics and parent tracking in one focused learning system.",
+      "Personalized study plans, topic-wise practice, weekly mock tests, and performance analytics in one focused learning system.",
     benefits: [
       "Personalized study plans",
       "Weekly mock tests",
@@ -101,7 +105,7 @@ export const homePageContent = {
     { value: "25,000+", label: "Happy students", tone: "violet" },
     { value: "5000+", label: "Practice questions", tone: "blue" },
     { value: "200+", label: "Mock tests", tone: "green" },
-    { value: "98%", label: "Parent satisfaction", tone: "amber" },
+    { value: "98%", label: "Learner satisfaction", tone: "amber" },
   ],
   features: {
     eyebrow: "Everything you need to improve",
@@ -129,8 +133,8 @@ export const homePageContent = {
       },
       {
         icon: "◉",
-        title: "Parent tracking",
-        body: "Parents get simple readiness visibility without entering the student workflow.",
+        title: "Managed institute rollout",
+        body: "Institutes can launch learners with the right setup, access rules, and academic structure already in place.",
       },
       {
         icon: "△",
@@ -164,19 +168,19 @@ export const homePageContent = {
         ],
       },
       {
-        title: "Parent progress report",
+        title: "Institute readiness view",
         accent: "mint",
         stats: [
-          { label: "Study time", value: "8h 45m" },
-          { label: "Tests taken", value: "3" },
-          { label: "Accuracy", value: "84%" },
-          { label: "Best subject", value: "Mathematics" },
+          { label: "Active learners", value: "480" },
+          { label: "Tests this week", value: "36" },
+          { label: "Completion", value: "84%" },
+          { label: "Top program", value: "NEET Foundation" },
         ],
       },
     ],
   },
   testimonials: {
-    eyebrow: "Loved by students, trusted by parents",
+    eyebrow: "Loved by learners, trusted by educators",
     items: [
       {
         quote:
@@ -186,15 +190,15 @@ export const homePageContent = {
       },
       {
         quote:
-          "I can see my child's improvement every week. The reports are very helpful.",
-        author: "Priya Verma",
-        role: "Parent",
-      },
-      {
-        quote:
           "Easy to use and saves a lot of time in test creation and evaluation.",
         author: "Rahul Mehta",
         role: "Teacher",
+      },
+      {
+        quote:
+          "The reporting and exam workflows are much easier to manage when the entire institute runs on one connected system.",
+        author: "Ananya Rao",
+        role: "Institute coordinator",
       },
     ],
     community: {
@@ -203,7 +207,7 @@ export const homePageContent = {
     },
   },
   finalCta: {
-    title: "Give your child a competitive edge",
+    title: "Give your preparation a competitive edge",
     description:
       "Start learning smarter, practicing better and achieving higher with the same sober Nexora experience across every workspace.",
     primaryCta: {
@@ -219,19 +223,19 @@ export const homePageContent = {
   },
   roleCards: {
     eyebrow: "Built for every role",
-    title: "One product system for students, parents, and teachers.",
+    title: "One product system for students, teachers, and managed institutions.",
     description:
       "The same design language, same account model, and the right workspace after login.",
   },
   trustBar: {
-    title: "Built for one shared launch experience",
-    logos: ["Student", "Parent", "Teacher", "Shared account"],
+    title: "Built for one connected launch system",
+    logos: ["Student", "Teacher", "Institute", "Shared account"],
   },
   categories: {
     eyebrow: "What the launch supports",
-    title: "Three public roles, one product system.",
+    title: "Student, teacher, and institute-ready access in one product system.",
     description:
-      "One polished flow, one shared database area, and the right workspace after login.",
+      "One polished learner flow, guided teaching access, and managed institute operations in the same product system.",
     items: [
       {
         icon: "S",
@@ -241,18 +245,18 @@ export const homePageContent = {
         href: "/signup?role=student",
       },
       {
-        icon: "P",
-        title: "Parent onboarding",
-        subtitle: "Child readiness",
-        body: "Parents start with a simple account and the child context needed for alerts.",
-        href: "/signup?role=parent",
-      },
-      {
         icon: "T",
         title: "Teacher onboarding",
         subtitle: "Teaching focus",
         body: "Teachers register with the details needed for exam creation and review.",
         href: "/signup?role=teacher",
+      },
+      {
+        icon: "I",
+        title: "Institute access",
+        subtitle: "Managed setup",
+        body: "Institute teams use a managed lane for setup, rosters, academic structure, and rollout support.",
+        href: "/portal",
       },
     ],
   },
@@ -405,7 +409,7 @@ export const portalAccessLanes = [
 ] as const;
 
 export const publicPortalAccessLanes = portalAccessLanes.filter(
-  (lane) => lane.role === "student" || lane.role === "parent" || lane.role === "teacher",
+  (lane) => lane.role === "student" || lane.role === "teacher",
 );
 
 export const internalPortalAccessLanes = portalAccessLanes.filter(

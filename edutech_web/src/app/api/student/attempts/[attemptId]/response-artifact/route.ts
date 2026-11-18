@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   fetchCurrentAccountProfile,
   getSessionAccessToken,
+  hasPortalRole,
 } from "@/lib/auth/session";
 import { validateStudentResponseArtifactUpload } from "@/lib/http/upload-validation";
 
@@ -24,7 +25,7 @@ export async function POST(
     );
   }
 
-  if (!profile || profile.role !== "student" || !accessToken) {
+  if (!hasPortalRole(profile, "student") || !accessToken) {
     return NextResponse.json(
       { detail: "Student session is not available." },
       { status: 401 },

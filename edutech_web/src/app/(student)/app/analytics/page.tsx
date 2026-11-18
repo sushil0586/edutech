@@ -186,7 +186,7 @@ function isAwsCertificationAnalyticsLane(params: {
     } | null;
     title: string;
     code: string;
-    experience_profile: {
+    experience_profile?: {
       assessment_family: string;
       assessment_family_label: string;
     };
@@ -199,11 +199,11 @@ function isAwsCertificationAnalyticsLane(params: {
   if (
     params.scopedPracticeExams.some(
       (exam) =>
-        exam.experience_profile.assessment_family === "certification" &&
+        exam.experience_profile?.assessment_family === "certification" &&
         (looksLikeAwsCertificationValue(getExamSubjectDisplayLabel(exam)) ||
           looksLikeAwsCertificationValue(exam.title) ||
           looksLikeAwsCertificationValue(exam.code) ||
-          looksLikeAwsCertificationValue(exam.experience_profile.assessment_family_label)),
+          looksLikeAwsCertificationValue(exam.experience_profile?.assessment_family_label)),
     )
   ) {
     return true;

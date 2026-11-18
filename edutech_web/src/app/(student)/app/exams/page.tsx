@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect, unstable_rethrow } from "next/navigation";
-import type { StudentAvailableExam } from "@/features/dashboard/types";
+import type { StudentExamCatalog } from "@/features/dashboard/types";
 import { fetchCurrentAccountProfile } from "@/lib/auth/session";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import { FilterSummaryPills } from "@/components/ui/filter-summary-pills";
@@ -9,6 +9,7 @@ import { StudentPageHeader } from "@/components/ui/student-page-header";
 import { StudentStatePanel } from "@/components/ui/student-state-panel";
 import { StudentWorkspaceLink as Link } from "@/components/ui/student-workspace-link";
 import { StatusPill } from "@/components/ui/status-pill";
+import { resolveAssessmentExamFamilyId } from "@/lib/assessment/exam-family-metadata";
 import {
   fetchStudentAvailableExams,
   fetchStudentAttempts,
@@ -42,6 +43,16 @@ type ExamAvailabilityFilter =
 type ExamSortOption = "recommended" | "start_soon" | "duration_short" | "duration_long" | "title";
 type ExamGroupOption = "none" | "availability" | "source" | "security";
 const EXAM_PAGE_SIZE_VALUES = [6, 12, 18] as const;
+
+function detectCompetitiveLane(values: Array<string | null | undefined>) {
+  for (const value of values) {
+    const familyId = resolveAssessmentExamFamilyId(value);
+    if (familyId === "neet" || familyId === "jee") {
+      return familyId;
+    }
+  }
+  return null;
+}
 
 function parsePositiveInt(value: string | undefined, fallback: number) {
   const parsed = Number.parseInt(value ?? "", 10);
@@ -134,7 +145,7 @@ function resolveSelectedSource(value?: string): SourceFilterValue {
   }
 }
 
-function examSourceDescriptor(exam: StudentAvailableExam) {
+function examSourceDescriptor(exam: StudentExamCatalog) {
   if (exam.source_type === "teacher" && exam.source_teacher_name) {
     return `${exam.source_label} · ${exam.source_teacher_name}`;
   }
@@ -214,7 +225,7 @@ function examAvailabilityGuidance(exam: {
   return "Open the detail page to review availability and the next action you can take.";
 }
 
-function subscriptionAllowanceBadge(exam: StudentAvailableExam) {
+function subscriptionAllowanceBadge(exam: StudentExamCatalog) {
   const summary = exam.economy_access.subscription_resolution;
   if (!summary?.is_applicable) {
     return null;
@@ -282,7 +293,7 @@ function resolveExamGroupOption(value?: string): ExamGroupOption {
   }
 }
 
-function applyExamAvailabilityFilter(exams: StudentAvailableExam[], filter: ExamAvailabilityFilter) {
+function applyExamAvailabilityFilter(exams: StudentExamCatalog[], filter: ExamAvailabilityFilter) {
   switch (filter) {
     case "ready":
       return exams.filter((exam) => exam.can_start);
@@ -299,9 +310,9 @@ function applyExamAvailabilityFilter(exams: StudentAvailableExam[], filter: Exam
   }
 }
 
-function sortExams(exams: StudentAvailableExam[], sortBy: ExamSortOption) {
+function sortExams(exams: StudentExamCatalog[], sortBy: ExamSortOption) {
   const sortable = [...exams];
-  const recommendedRank = (exam: StudentAvailableExam) => {
+  const recommendedRank = (exam: StudentExamCatalog) => {
     if (exam.can_resume) return 0;
     if (exam.can_start) return 1;
     if (exam.availability_state === "upcoming") return 2;
@@ -334,7 +345,7 @@ function sortExams(exams: StudentAvailableExam[], sortBy: ExamSortOption) {
   return sortable;
 }
 
-function buildExamGroupLabel(exam: StudentAvailableExam, groupBy: ExamGroupOption) {
+function buildExamGroupLabel(exam: StudentExamCatalog, groupBy: ExamGroupOption) {
   if (groupBy === "availability") {
     return formatExamState(exam.availability_state);
   }
@@ -347,12 +358,12 @@ function buildExamGroupLabel(exam: StudentAvailableExam, groupBy: ExamGroupOptio
   return "Mock tests";
 }
 
-function groupExams(exams: StudentAvailableExam[], groupBy: ExamGroupOption) {
+function groupExams(exams: StudentExamCatalog[], groupBy: ExamGroupOption) {
   if (groupBy === "none") {
     return [{ label: "All mock tests", items: exams }];
   }
 
-  const buckets = new Map<string, StudentAvailableExam[]>();
+  const buckets = new Map<string, StudentExamCatalog[]>();
   for (const exam of exams) {
     const label = buildExamGroupLabel(exam, groupBy);
     buckets.set(label, [...(buckets.get(label) ?? []), exam]);
@@ -426,43 +437,36 @@ async function loadExams(filters: {
   const state = getStudentApiState();
 
   if (!state.apiConfigured) {
-    return {
-      source: "unconfigured" as const,
-      exams: [] as StudentAvailableExam[],
-      catalogExams: [] as StudentAvailableExam[],
-      attempts: [],
-      wallet: null,
-    };
+      return {
+        source: "unconfigured" as const,
+        exams: [] as StudentExamCatalog[],
+        attempts: [],
+        wallet: null,
+      };
   }
 
   try {
     const filteredExamPromise = fetchStudentAvailableExams({
       source: filters.source,
       teacher: filters.source === "teacher" ? filters.teacher : null,
+      excludeExamType: "practice",
     });
-    const catalogExamPromise =
-      filters.source === "all" && !filters.teacher
-        ? filteredExamPromise
-        : fetchStudentAvailableExams();
 
-    const [exams, catalogExams, attempts, wallet] = await Promise.all([
+    const [exams, attempts, wallet] = await Promise.all([
       filteredExamPromise,
-      catalogExamPromise,
       fetchStudentAttempts(),
       fetchStudentWalletSummary().catch(() => null),
     ]);
     return {
       source: "live" as const,
       exams,
-      catalogExams,
       attempts,
       wallet,
     };
   } catch {
     return {
       source: "error" as const,
-      exams: [] as StudentAvailableExam[],
-      catalogExams: [] as StudentAvailableExam[],
+      exams: [] as StudentExamCatalog[],
       attempts: [],
       wallet: null,
     };
@@ -525,7 +529,7 @@ export default async function ExamsPage({
     teacher: selectedTeacherId,
   });
   const mockExams = filterStudentExamsBySubject(
-    exams.filter((exam) => exam.exam_type !== "practice"),
+    exams,
     selectedSubject,
   );
   const availabilityFilter = resolveExamAvailabilityFilter(exam_availability);
@@ -565,6 +569,28 @@ export default async function ExamsPage({
   const featuredExamSubjectLabel = featuredExam
     ? getExamSubjectDisplayLabel(featuredExam)
     : null;
+  const competitiveLane =
+    detectCompetitiveLane([selectedSubjectLabel]) ??
+    (featuredExam
+      ? detectCompetitiveLane([
+          featuredExam.experience_profile?.assessment_family_label,
+          featuredExamSubjectLabel,
+          featuredExam.title,
+          featuredExam.code,
+        ])
+      : null);
+  const examsDescription =
+    competitiveLane === "neet"
+      ? selectedSubject === ALL_SUBJECTS_CONTEXT
+        ? "Start a NEET-ready mock, resume an unfinished one, or open details to confirm the next valid attempt."
+        : `Start or resume ${selectedSubjectLabel} NEET-style mocks and check the next valid action for each one.`
+      : competitiveLane === "jee"
+        ? selectedSubject === ALL_SUBJECTS_CONTEXT
+          ? "Start a JEE-style challenge mock, resume an unfinished one, or open details to confirm the next valid attempt."
+          : `Start or resume ${selectedSubjectLabel} JEE-style mocks and check the next valid action for each one.`
+        : selectedSubject === ALL_SUBJECTS_CONTEXT
+          ? "Start a ready mock test, resume an unfinished one, or open details to see what you can do next."
+          : `Start or resume ${selectedSubjectLabel} mock tests and check the next valid action for each one.`;
 
   return (
     <div className="studentPage studentDashboardModern studentLearnerPage studentLearnerExamsPage">
@@ -587,9 +613,7 @@ export default async function ExamsPage({
             .join(" · ") || undefined
         }
         description={
-          selectedSubject === ALL_SUBJECTS_CONTEXT
-            ? "Open mock tests, continue live attempts, and see the next valid action at a glance."
-            : `Open mock tests and continue live attempts for ${selectedSubjectLabel}.`
+          examsDescription
         }
         statusLabel={
           source === "live"

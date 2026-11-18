@@ -8,7 +8,7 @@ import {
   fetchRegistrationOptions,
   getPostAuthRedirectPath,
 } from "@/lib/auth/session";
-import { publicPortalAccessLanes } from "@/lib/site-content";
+import { launchScopeStatement, publicPortalAccessLanes } from "@/lib/site-content";
 
 type SignupPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;

@@ -10,6 +10,8 @@ export type QuestionPassageImportSampleTemplate = QuestionImportSampleTemplate;
 
 type SampleRow = Record<string, string>;
 
+type SampleVariant = Omit<QuestionImportSampleTemplate, "csvContent"> & { rows: SampleRow[] };
+
 function escapeCsvValue(value: string) {
   if (/[",\n]/.test(value)) {
     return `"${value.replaceAll('"', '""')}"`;
@@ -51,10 +53,46 @@ function baseRow(): SampleRow {
   };
 }
 
-export function buildQuestionImportSampleTemplates(columns: string[]) {
-  const mcqSingle = {
+function buildObjectiveRow(
+  questionType: string,
+  values: Partial<SampleRow>,
+) {
+  return {
     ...baseRow(),
-    question_type: "mcq_single",
+    question_type: questionType,
+    ...values,
+  };
+}
+
+function buildTextAnswerRow(
+  questionType: "short_answer" | "numeric_answer" | "fill_in_blanks",
+  values: Partial<SampleRow>,
+) {
+  return buildObjectiveRow(questionType, values);
+}
+
+function buildManualReviewRow(values: Partial<SampleRow>) {
+  return buildObjectiveRow("essay_manual_review", values);
+}
+
+function buildSampleTemplate(
+  id: string,
+  title: string,
+  description: string,
+  fileName: string,
+  rows: SampleRow[],
+): SampleVariant {
+  return {
+    id,
+    title,
+    description,
+    fileName,
+    rows,
+  };
+}
+
+export function buildQuestionImportSampleTemplates(columns: string[]) {
+  const mcqSingle = buildObjectiveRow("mcq_single", {
     question_text: "Which AWS service stores files as objects?",
     option_1: "Amazon S3",
     option_2: "Amazon RDS",
@@ -63,61 +101,49 @@ export function buildQuestionImportSampleTemplates(columns: string[]) {
     correct_answer: "1",
     explanation: "Amazon S3 is AWS object storage.",
     tags: "aws|storage|mcq",
-  };
+  });
 
-  const trueFalse = {
-    ...baseRow(),
-    question_type: "true_false",
+  const trueFalse = buildObjectiveRow("true_false", {
     question_text: "Auto Scaling helps adjust capacity based on demand.",
     option_1: "True",
     option_2: "False",
     correct_answer: "1",
     explanation: "Auto Scaling increases or decreases resources automatically.",
     tags: "aws|autoscaling|true-false",
-  };
+  });
 
-  const shortAnswer = {
-    ...baseRow(),
-    question_type: "short_answer",
+  const shortAnswer = buildTextAnswerRow("short_answer", {
     question_text: "What does IAM stand for in AWS?",
     accepted_answers: "Identity and Access Management|AWS Identity and Access Management",
     explanation: "IAM controls users, roles, and permissions in AWS.",
     tags: "aws|identity|short-answer",
-  };
+  });
 
-  const assertionReason = {
-    ...baseRow(),
-    question_type: "assertion_reason",
+  const assertionReason = buildObjectiveRow("assertion_reason", {
     question_text: "Choose the correct relationship between the assertion and the reason.",
     assertion_text: "AWS Auto Scaling can automatically increase compute capacity during demand spikes.",
     reason_text: "Auto Scaling monitors demand signals and adjusts resource count based on configured policies.",
     correct_answer: "1",
     explanation: "Both statements are true, and the reason explains the assertion.",
     tags: "aws|autoscaling|assertion-reason",
-  };
+  });
 
-  const numeric = {
-    ...baseRow(),
-    question_type: "numeric_answer",
+  const numeric = buildTextAnswerRow("numeric_answer", {
     question_text: "If each question gives 2 marks, how many marks do 5 correct answers give?",
     accepted_answers: "10|10.0",
     numeric_tolerance: "0.01",
     explanation: "5 multiplied by 2 equals 10.",
     tags: "math|numeric|short-answer",
-  };
+  });
 
-  const fillInBlanks = {
-    ...baseRow(),
-    question_type: "fill_in_blanks",
+  const fillInBlanks = buildTextAnswerRow("fill_in_blanks", {
     question_text: "Amazon [[blank]] stores data as [[blank]] inside buckets.",
     accepted_answers: "S3|objects",
     explanation: "Amazon S3 stores objects in buckets.",
     tags: "aws|storage|fill-in-the-blanks",
-  };
+  });
 
-  const matrixMatch = {
-    ...baseRow(),
-    question_type: "matrix_match",
+  const matrixMatch = buildObjectiveRow("matrix_match", {
     question_text: "Match each AWS service in Column I with its best description in Column II, then choose the correct option.",
     matrix_left_items: "S3|EC2|RDS",
     matrix_right_items: "Object storage|Virtual machine|Managed relational database",
@@ -128,11 +154,9 @@ export function buildQuestionImportSampleTemplates(columns: string[]) {
     correct_answer: "1",
     explanation: "S3 is object storage, EC2 is virtual compute, and RDS is a managed relational database.",
     tags: "aws|matching|matrix",
-  };
+  });
 
-  const essay = {
-    ...baseRow(),
-    question_type: "essay_manual_review",
+  const essay = buildManualReviewRow({
     difficulty_level: "advanced",
     default_marks: "5.00",
     question_text: "Explain how cloud elasticity differs from scalability with one practical example.",
@@ -140,13 +164,11 @@ export function buildQuestionImportSampleTemplates(columns: string[]) {
       "Award full marks when the response clearly defines both terms and gives one correct real-world example.",
     explanation: "This question is manually reviewed, so explanation can store model guidance.",
     tags: "cloud|essay|review",
-  };
+  });
 
-  const linkedComprehension = {
-    ...baseRow(),
+  const linkedComprehension = buildObjectiveRow("mcq_single", {
     passage_title: "Cloud Security Reading Set",
     passage_order: "1",
-    question_type: "mcq_single",
     question_text: "According to the passage, who secures the cloud infrastructure?",
     option_1: "The cloud provider",
     option_2: "Only the customer",
@@ -155,72 +177,72 @@ export function buildQuestionImportSampleTemplates(columns: string[]) {
     correct_answer: "1",
     explanation: "The provider is responsible for security of the cloud.",
     tags: "aws|comprehension|linked",
-  };
+  });
 
-  const variants: Array<Omit<QuestionImportSampleTemplate, "csvContent"> & { rows: SampleRow[] }> = [
-    {
-      id: "mcq-single",
-      title: "Single Correct MCQ",
-      description: "Shows option columns plus a single numeric correct answer index.",
-      fileName: "nexora-sample-mcq-single.csv",
-      rows: [mcqSingle],
-    },
-    {
-      id: "true-false",
-      title: "True / False",
-      description: "Uses the same objective structure with two options and one correct answer.",
-      fileName: "nexora-sample-true-false.csv",
-      rows: [trueFalse],
-    },
-    {
-      id: "assertion-reason",
-      title: "Assertion / Reason",
-      description: "Uses assertion_text and reason_text with a fixed four-option pattern and a correct answer index from 1 to 4.",
-      fileName: "nexora-sample-assertion-reason.csv",
-      rows: [assertionReason],
-    },
-    {
-      id: "short-answer",
-      title: "Short Answer",
-      description: "Uses accepted answers with pipe-separated variants instead of options.",
-      fileName: "nexora-sample-short-answer.csv",
-      rows: [shortAnswer],
-    },
-    {
-      id: "numeric",
-      title: "Numeric Response",
-      description: "Shows accepted answers plus numeric tolerance for near-match scoring.",
-      fileName: "nexora-sample-numeric.csv",
-      rows: [numeric],
-    },
-    {
-      id: "fill-in-blanks",
-      title: "Fill in the Blanks",
-      description: "Uses [[blank]] markers in the prompt and ordered accepted answers for each blank.",
-      fileName: "nexora-sample-fill-in-blanks.csv",
-      rows: [fillInBlanks],
-    },
-    {
-      id: "matrix-match",
-      title: "Matrix Match",
-      description: "Uses matrix_left_items and matrix_right_items with standard answer options and a single correct answer index.",
-      fileName: "nexora-sample-matrix-match.csv",
-      rows: [matrixMatch],
-    },
-    {
-      id: "essay",
-      title: "Essay Review",
-      description: "Shows manual-review guidance without objective options or accepted answers.",
-      fileName: "nexora-sample-essay.csv",
-      rows: [essay],
-    },
-    {
-      id: "linked-comprehension",
-      title: "Linked to Comprehension",
-      description: "Shows how to connect a question row to an existing comprehension set using passage title and order.",
-      fileName: "nexora-sample-linked-comprehension.csv",
-      rows: [linkedComprehension],
-    },
+  const variants: SampleVariant[] = [
+    buildSampleTemplate(
+      "mcq-single",
+      "Single Correct MCQ",
+      "Shows option columns plus a single numeric correct answer index.",
+      "nexora-sample-mcq-single.csv",
+      [mcqSingle],
+    ),
+    buildSampleTemplate(
+      "true-false",
+      "True / False",
+      "Uses the same objective structure with two options and one correct answer.",
+      "nexora-sample-true-false.csv",
+      [trueFalse],
+    ),
+    buildSampleTemplate(
+      "assertion-reason",
+      "Assertion / Reason",
+      "Uses assertion_text and reason_text with a fixed four-option pattern and a correct answer index from 1 to 4.",
+      "nexora-sample-assertion-reason.csv",
+      [assertionReason],
+    ),
+    buildSampleTemplate(
+      "short-answer",
+      "Short Answer",
+      "Uses accepted answers with pipe-separated variants instead of options.",
+      "nexora-sample-short-answer.csv",
+      [shortAnswer],
+    ),
+    buildSampleTemplate(
+      "numeric",
+      "Numeric Response",
+      "Shows accepted answers plus numeric tolerance for near-match scoring.",
+      "nexora-sample-numeric.csv",
+      [numeric],
+    ),
+    buildSampleTemplate(
+      "fill-in-blanks",
+      "Fill in the Blanks",
+      "Uses [[blank]] markers in the prompt and ordered accepted answers for each blank.",
+      "nexora-sample-fill-in-blanks.csv",
+      [fillInBlanks],
+    ),
+    buildSampleTemplate(
+      "matrix-match",
+      "Matrix Match",
+      "Uses matrix_left_items and matrix_right_items with standard answer options and a single correct answer index.",
+      "nexora-sample-matrix-match.csv",
+      [matrixMatch],
+    ),
+    buildSampleTemplate(
+      "essay",
+      "Essay Review",
+      "Shows manual-review guidance without objective options or accepted answers.",
+      "nexora-sample-essay.csv",
+      [essay],
+    ),
+    buildSampleTemplate(
+      "linked-comprehension",
+      "Linked to Comprehension",
+      "Shows how to connect a question row to an existing comprehension set using passage title and order.",
+      "nexora-sample-linked-comprehension.csv",
+      [linkedComprehension],
+    ),
   ];
 
   return variants.map((variant) => ({

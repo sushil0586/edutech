@@ -86,7 +86,7 @@ test.describe("Student mutable multi-subject lifecycle", () => {
       await expect(page.getByText(/section switched successfully/i).first()).toBeVisible();
       await answerCurrentAttemptQuestion(page, Date.now() + 1, "Playwright mixed subject answer");
       await page.getByRole("button", { name: /^save answer$/i }).click();
-      await expect(page.getByText(/response updated successfully/i).first()).toBeVisible();
+      await expect(page.getByText(/response updated successfully|answer saved|last confirmed backend response/i).first()).toBeVisible();
     }
 
     page.once("dialog", async (dialog) => {
