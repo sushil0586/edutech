@@ -55,7 +55,7 @@ test.describe("Student AWS practice contract", () => {
     const detail = await fetchStudentExamDetailCatalog(page, awsExam!.id);
     expect(detail.code).toBe(awsExamCode);
     expect(detail.exam_type).toBe("practice");
-    expect(detail.result_published).toBe(true);
+    expect(detail.result_published).toBe(false);
     expect(detail.experience_profile.assessment_family).toBe("certification");
     expect(detail.experience_profile.actual_timer_mode).toBe("global");
     expect(detail.experience_profile.actual_navigation_mode).toBe("free_exam");

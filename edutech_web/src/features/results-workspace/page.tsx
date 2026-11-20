@@ -6293,6 +6293,7 @@ export async function ResultsWorkspacePage({
   const useCompactExamBootstrap = view !== "overview";
   const compactExamPageSize = Math.max(examPageSize, 5);
   const needsRuntimeOps = view === "overview";
+  const needsSelectedExamDetail = Boolean(selectedExamId);
 
   const [summaries, runtimeSummary, teacherExams, compactExamPage, selectedExamDetail] = await Promise.all([
     fetchTeacherResultSummary().catch(() => null),

@@ -290,7 +290,7 @@ async function chooseCurrentQuestionOption(page: Page, optionIndex: number) {
 
 async function answerAttemptWithPattern(page: Page, examTitle: string, optionIndexes: number[]) {
   await expect(page.getByText(new RegExp(escapeRegExp(examTitle), "i")).first()).toBeVisible();
-  await expect(page.getByText(/attempt progress/i).first()).toBeVisible();
+  await expect(page.getByText(/test summary/i).first()).toBeVisible();
 
   for (let index = 0; index < optionIndexes.length; index += 1) {
     await expect(page.getByText(new RegExp(`^question ${index + 1}$`, "i")).first()).toBeVisible();
@@ -310,7 +310,7 @@ async function answerAttemptWithPattern(page: Page, examTitle: string, optionInd
   page.once("dialog", async (dialog) => {
     await dialog.accept();
   });
-  await page.getByRole("button", { name: /^submit test$/i }).click();
+  await page.getByRole("button", { name: /^(submit test|end test)$/i }).click();
   await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/summary(?:\?.*)?$/);
   await expect(page.getByText(/attempt submitted successfully/i).first()).toBeVisible();
   await expect(page.getByText(/attempt summary/i).first()).toBeVisible();

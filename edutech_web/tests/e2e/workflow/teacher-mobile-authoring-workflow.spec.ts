@@ -162,7 +162,7 @@ test.describe("Teacher mobile authoring workflow", () => {
 
       const acceptedAnswers = page.locator('textarea[name="accepted_answers"]');
       if (await acceptedAnswers.isVisible().catch(() => false)) {
-        await acceptedAnswers.fill("Mobile teacher answer");
+        await acceptedAnswers.fill("42");
       }
 
       const reviewGuidance = page.locator('textarea[name="review_guidance"]');

@@ -1,4 +1,4 @@
-import { expect, test, type TestInfo } from "@playwright/test";
+import { expect, test, type Locator, type TestInfo } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { createNetworkAudit, summarizeDuplicateRequests } from "../helpers/network-audit";
 import { expectAdminWorkspace } from "../helpers/navigation";
@@ -53,6 +53,26 @@ const canonicalProgramName = "Class 10 Foundation";
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+async function waitForNonEmptyOptionValues(locator: Locator) {
+  await expect
+    .poll(async () => {
+      return locator.locator("option").evaluateAll((options) =>
+        options.filter((option) => (option as HTMLOptionElement).value.trim().length > 0).length,
+      );
+    })
+    .toBeGreaterThan(0);
+}
+
+async function selectFirstNonEmptyOption(locator: Locator) {
+  await waitForNonEmptyOptionValues(locator);
+  const firstValue = await locator.locator("option").evaluateAll((options) => {
+    const option = options.find((entry) => (entry as HTMLOptionElement).value.trim().length > 0);
+    return option ? (option as HTMLOptionElement).value : "";
+  });
+  expect(firstValue).not.toBe("");
+  await locator.selectOption(firstValue);
 }
 
 async function backendAccessToken(page: Parameters<typeof createNetworkAudit>[0]) {

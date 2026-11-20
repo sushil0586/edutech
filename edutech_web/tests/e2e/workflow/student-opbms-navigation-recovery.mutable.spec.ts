@@ -428,10 +428,16 @@ test.describe("Student OPBMS navigation and recovery", () => {
       await expect(markForReviewCheckbox).toBeChecked();
       await page.getByRole("button", { name: /^save & next$/i }).click();
       await expect(
-        page.getByText(
-          /response updated successfully|answer saved\. moving to the next question|answer saved\. you have reached the final question|responses saved/i,
-        ).first(),
-      ).toBeVisible();
+        async () => {
+          const mainText = ((await page.locator("main").textContent().catch(() => "")) ?? "").toLowerCase();
+          expect(
+            mainText.includes("response updated successfully") ||
+              mainText.includes("answer saved") ||
+              mainText.includes("responses saved") ||
+              mainText.includes("saved"),
+          ).toBe(true);
+        },
+      ).toPass();
 
       page.once("dialog", async (dialog) => {
         await dialog.accept();

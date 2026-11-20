@@ -64,7 +64,7 @@ test.describe("Teacher question bank continuity", () => {
       await expect(details).toHaveAttribute("open", "");
     }
 
-    await page.getByRole("link", { name: /reset filters and show all questions|reset filters/i }).first().click();
+    await page.getByRole("button", { name: /^reset$/i }).first().click();
     await expect(page).toHaveURL(/\/teacher\/question-bank(?:\?.*)?$/);
     await expect(page.getByRole("textbox", { name: /search question text/i })).toHaveValue("");
   });

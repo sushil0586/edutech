@@ -369,7 +369,7 @@ async function loadPracticeWorkspace() {
   try {
     const [summary, exams, attempts] = await Promise.all([
       fetchStudentInsightSummary(),
-      fetchStudentAvailableExams(),
+      fetchStudentAvailableExams({ examType: "practice" }),
       fetchStudentAttempts(),
     ]);
 

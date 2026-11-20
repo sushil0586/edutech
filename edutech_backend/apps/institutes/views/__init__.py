@@ -2,6 +2,7 @@ from django.db import transaction
 from django.db.models import Count, Q
 from rest_framework.exceptions import APIException
 from django.db.models import Prefetch
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -40,6 +41,9 @@ class StaleInstituteUpdate(APIException):
 class InstituteOnboardingProfileListView(APIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
 
+    @extend_schema(
+        responses=InstituteOnboardingProfileListSerializer(many=True),
+    )
     def get(self, request):
         queryset = InstituteOnboardingProfile.objects.filter(is_active=True).order_by("sort_order", "name")
         return Response(InstituteOnboardingProfileListSerializer(queryset, many=True).data)
@@ -48,6 +52,11 @@ class InstituteOnboardingProfileListView(APIView):
 class InstituteOnboardingRunListView(APIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
 
+    @extend_schema(
+        operation_id="v1_institutes_onboarding_runs_list",
+        parameters=[OpenApiParameter(name="institute_id", type=str, location=OpenApiParameter.PATH)],
+        responses=InstituteOnboardingRunListSerializer(many=True),
+    )
     def get(self, request, institute_id):
         queryset = (
             InstituteOnboardingRun.objects.filter(institute_id=institute_id)
@@ -68,6 +77,17 @@ class InstituteOnboardingRunListView(APIView):
 class InstituteOnboardingRunDetailView(APIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
 
+    @extend_schema(
+        operation_id="v1_institutes_onboarding_runs_detail",
+        parameters=[
+            OpenApiParameter(name="institute_id", type=str, location=OpenApiParameter.PATH),
+            OpenApiParameter(name="run_id", type=str, location=OpenApiParameter.PATH),
+        ],
+        responses={
+            200: InstituteOnboardingRunDetailSerializer,
+            404: OpenApiResponse(description="Onboarding run not found."),
+        },
+    )
     def get(self, request, institute_id, run_id):
         run = (
             InstituteOnboardingRun.objects.filter(id=run_id, institute_id=institute_id)
@@ -82,6 +102,13 @@ class InstituteOnboardingRunDetailView(APIView):
 class InstituteOnboardingTaskRunListView(APIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name="institute_id", type=str, location=OpenApiParameter.PATH),
+            OpenApiParameter(name="run_id", type=str, location=OpenApiParameter.PATH),
+        ],
+        responses=InstituteOnboardingTaskRunListSerializer(many=True),
+    )
     def get(self, request, institute_id, run_id):
         queryset = (
             InstituteOnboardingTaskRun.objects.filter(
@@ -149,7 +176,7 @@ class InstituteViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
         profile = get_account_profile(self.request.user)
         if profile is None or not profile.is_active:
             return queryset.none()
-        if profile.role == "platform_admin":
+        if profile.role == AccountRole.PLATFORM_ADMIN:
             return queryset
         if profile.institute_id:
             return queryset.filter(id=profile.institute_id)

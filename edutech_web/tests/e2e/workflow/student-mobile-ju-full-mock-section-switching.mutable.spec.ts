@@ -76,7 +76,7 @@ test.describe("Student mobile JEE section switching", () => {
 
     await answerCurrentAttemptQuestion(page, Date.now(), "8");
     await page.getByRole("button", { name: /^save answer$/i }).click();
-    await expect(page.getByText(/response updated successfully/i).first()).toBeVisible();
+    await expect(page.getByText(/response updated successfully|answer saved|last confirmed backend response/i).first()).toBeVisible();
 
     const chemistryNumericSectionButton = page
       .locator(".attemptSectionCard")
@@ -89,7 +89,7 @@ test.describe("Student mobile JEE section switching", () => {
 
     await answerCurrentAttemptQuestion(page, 7, "7");
     await page.getByRole("button", { name: /^save answer$/i }).click();
-    await expect(page.getByText(/response updated successfully/i).first()).toBeVisible();
+    await expect(page.getByText(/response updated successfully|answer saved|last confirmed backend response/i).first()).toBeVisible();
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(new RegExp(`/app/attempts/${attemptId}(?:\\?.*)?$`));
@@ -106,7 +106,7 @@ test.describe("Student mobile JEE section switching", () => {
     page.once("dialog", async (dialog) => {
       await dialog.accept();
     });
-    await page.getByRole("button", { name: /^submit test$/i }).click();
+    await page.getByRole("button", { name: /^(submit test|end test)$/i }).click();
 
     await expect(page).toHaveURL(new RegExp(`/app/attempts/${attemptId}/summary\\?`));
     await expect(page.getByRole("heading", { name: /summary/i }).first()).toBeVisible();

@@ -1,5 +1,4 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { getRoleCredentials } from "../fixtures/env";
 import { assignStudentToExam } from "../helpers/family-runtime";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
@@ -43,20 +42,19 @@ function instituteResultsWorkspaceReadinessCard(page: Page, title: RegExp) {
   }).first();
 }
 
-function resultCardByTitle(page: Page, title: string) {
-  return page.locator("article.studentResultSurface").filter({
-    has: page.locator(".studentResultSurfaceHead strong", { hasText: title }),
-  }).first();
+function resultRowByTitle(page: Page, title: string) {
+  return page.getByRole("button", { name: new RegExp(escapeRegExp(title), "i") }).first();
 }
 
-async function selectFirstNonEmptyOption(locator: Locator) {
-  const values = await locator.locator("option").evaluateAll((options) =>
-    options.map((option) => (option as HTMLOptionElement).value),
+async function getNonEmptyOptions(locator: Locator) {
+  return locator.locator("option").evaluateAll((options) =>
+    options
+      .map((option) => ({
+        label: (option as HTMLOptionElement).label,
+        value: (option as HTMLOptionElement).value,
+      }))
+      .filter((option) => option.value.trim().length > 0),
   );
-  const optionValue = values.find((value) => value.trim().length > 0) ?? null;
-  expect(optionValue).not.toBeNull();
-  await locator.selectOption(optionValue!);
-  return optionValue!;
 }
 
 async function waitForSelectableOption(locator: Locator) {
@@ -120,6 +118,54 @@ async function selectOptionStartingWithLabel(locator: Locator, label: string) {
   expect(optionValue).not.toBeNull();
   await locator.selectOption(optionValue!);
   return optionValue!;
+}
+
+async function selectSubjectWithTopicOptions(
+  page: Page,
+  subjectLocator: Locator,
+  topicLocator: Locator,
+  preferredSubjectLabel: string | null,
+) {
+  await waitForSelectableOption(subjectLocator);
+  const subjects = await getNonEmptyOptions(subjectLocator);
+  const preferredSubject =
+    (preferredSubjectLabel
+      ? subjects.find((subject) => subject.label.trim().toLowerCase() === preferredSubjectLabel.trim().toLowerCase())?.value
+      : null) ??
+    subjects.find((subject) => /math/i.test(subject.label))?.value ??
+    subjects[0]?.value ??
+    null;
+  expect(preferredSubject).not.toBeNull();
+
+  const candidateSubjects = [
+    preferredSubject!,
+    ...subjects.map((subject) => subject.value).filter((value) => value !== preferredSubject),
+  ];
+
+  for (const subjectValue of candidateSubjects) {
+    const topicsResponse = page
+      .waitForResponse((response) => {
+        if (!response.ok()) {
+          return false;
+        }
+        const url = new URL(response.url());
+        return url.pathname.includes("/academics/topics") && url.searchParams.get("subject") === subjectValue;
+      }, { timeout: 5000 })
+      .catch(() => null);
+    await subjectLocator.selectOption(subjectValue);
+    await expect.poll(async () => subjectLocator.inputValue()).toBe(subjectValue);
+    await topicsResponse;
+    await expect(topicLocator).toBeEnabled();
+
+    const topics = await getNonEmptyOptions(topicLocator);
+    if (topics.length > 0) {
+      await topicLocator.selectOption(topics[0]!.value);
+      await expect.poll(async () => topicLocator.inputValue()).toBe(topics[0]!.value);
+      return { subjectValue, topicValue: topics[0]!.value };
+    }
+  }
+
+  throw new Error("Expected at least one selected subject to hydrate topic options.");
 }
 
 async function getCurrentSessionAccessToken(page: Page) {
@@ -279,6 +325,29 @@ async function linkExamQuestion(
   expect(response.ok(), await response.text()).toBe(true);
 }
 
+async function fetchExamStatus(page: Page, examId: string) {
+  const result = await requestBackendJson<{
+    status?: string | null;
+  }>(page, `/api/v1/exams/${examId}/`);
+  expect(result.response.ok(), result.bodyText).toBe(true);
+  return result.payload?.status ?? null;
+}
+
+async function fetchResultPublishReadiness(page: Page, examId: string) {
+  const result = await requestBackendJson<{
+    data?: {
+      ready?: boolean;
+      generated_results_count?: number;
+      published_results_count?: number;
+    };
+    ready?: boolean;
+    generated_results_count?: number;
+    published_results_count?: number;
+  }>(page, `/api/v1/results/exam/${examId}/publish-readiness/`);
+  expect(result.response.ok(), result.bodyText).toBe(true);
+  return result.payload?.data ?? result.payload;
+}
+
 async function fetchSessionProfile(page: Page, accessToken?: string) {
   const token = accessToken ?? (await getCurrentSessionAccessToken(page));
   const response = await page.request.get(`${backendBaseUrl}/api/v1/auth/me/`, {
@@ -363,10 +432,6 @@ test.describe("Institute mutable descriptive multi-role moderation actions", () 
   }) => {
     test.setTimeout(300000);
 
-    const studentCredentials = getRoleCredentials("student");
-    expect(studentCredentials).not.toBeNull();
-
-    let studentDisplayName = studentCredentials!.username;
     let studentProfileId: string | null = null;
     let studentAcademicYearName: string | null = null;
     let studentProgramName: string | null = null;
@@ -393,15 +458,6 @@ test.describe("Institute mutable descriptive multi-role moderation actions", () 
 
       await page.goto("/app/profile");
       await expect(page.getByRole("heading", { name: /^profile$/i }).first()).toBeVisible();
-      const identityCard = page.locator(".detailCard").filter({
-        has: page.getByText(/^name$/i),
-      }).first();
-      if (await identityCard.count()) {
-        const renderedName = (await identityCard.locator("strong").first().textContent())?.trim();
-        if (renderedName) {
-          studentDisplayName = renderedName;
-        }
-      }
       const studentMe = await requestBackendJson<{
         student_profile?: string | null;
         student_context?: {
@@ -528,6 +584,12 @@ test.describe("Institute mutable descriptive multi-role moderation actions", () 
       } else {
         await runInstituteExamAction(page, examId!, "mark-live");
       }
+      await expect
+        .poll(async () => await fetchExamStatus(page, examId!), {
+          timeout: 15000,
+          message: `Expected exam ${examId} to be live before student attempt.`,
+        })
+        .toBe("live");
 
       await loginAsRole(page, "student");
       await expectStudentWorkspace(page);
@@ -583,6 +645,12 @@ test.describe("Institute mutable descriptive multi-role moderation actions", () 
       } else {
         await runInstituteExamAction(page, examId!, "mark-completed");
       }
+      await expect
+        .poll(async () => await fetchExamStatus(page, examId!), {
+          timeout: 15000,
+          message: `Expected exam ${examId} to complete before review/result publication.`,
+        })
+        .toBe("completed");
 
       const reviewTaskId = await waitForReviewTaskInQueue(page, examId!);
       expect(reviewTaskId).not.toBeNull();
@@ -726,7 +794,14 @@ test.describe("Institute mutable descriptive multi-role moderation actions", () 
       });
       expect(publishResultsResponse.response.ok()).toBe(true);
 
-      await page.goto(`/institute/results?exam=${examId}`);
+      await expect
+        .poll(async () => Boolean((await fetchResultPublishReadiness(page, examId!))?.ready), {
+          timeout: 60000,
+          message: `Expected result publish readiness for exam ${examId} to be ready after publication.`,
+        })
+        .toBe(true);
+
+      await page.goto(`/institute/results?exam=${examId}&qa_refresh=${Date.now()}`);
       await expect(page.getByRole("heading", { name: /results/i }).first()).toBeVisible();
 
       await expect(

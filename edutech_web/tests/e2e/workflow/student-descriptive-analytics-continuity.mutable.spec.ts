@@ -54,8 +54,8 @@ function resultDetailsModal(page: Page) {
 }
 
 function questionPatternRowByTitle(page: Page, title: string) {
-  return page.locator(".studentQuestionPatternTable tbody tr").filter({
-    has: page.locator("td strong", { hasText: title }),
+  return page.getByRole("button", {
+    name: new RegExp(`^Open question pattern for ${escapeRegExp(title)}$`, "i"),
   }).first();
 }
 
@@ -707,6 +707,8 @@ test.describe("Student mutable descriptive analytics continuity", () => {
       await expect(page.getByRole("heading", { name: /question pattern report/i }).first()).toBeVisible();
       const questionPatternRow = questionPatternRowByTitle(page, questionText);
       await expect(questionPatternRow).toBeVisible();
+      await expect(questionPatternRow).toBeEnabled();
+      await questionPatternRow.scrollIntoViewIfNeeded();
       await questionPatternRow.click();
       const questionPatternModal = resultDetailsModal(page);
       await expect(questionPatternModal).toBeVisible();

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
+import { questionTypeLabel } from "@/lib/assessment/question-type";
 import { BuilderQuestionPreviewTrigger } from "@/components/ui/builder-question-preview-trigger";
 import { BuilderRapidAttach } from "@/components/ui/builder-rapid-attach";
 import { RichContentRenderer } from "@/components/ui/rich-content-renderer";
@@ -197,9 +198,9 @@ export function BuilderQuestionMapping({
       topicLabel,
       questionTypeCode: question.question_type ?? lookup?.question_type ?? "",
       typeLabel: question.question_type
-        ? questionTypeLabelMap[question.question_type] ?? titleCase(question.question_type)
+        ? questionTypeLabel(question.question_type, lookup?.question_type_definition)
         : lookup
-          ? questionTypeLabelMap[lookup.question_type] ?? titleCase(lookup.question_type)
+          ? questionTypeLabel(lookup.question_type, lookup.question_type_definition)
           : "Linked question",
       difficultyLabel: question.difficulty_level
         ? difficultyLabelMap[question.difficulty_level] ?? titleCase(question.difficulty_level)

@@ -902,7 +902,7 @@ function InstituteModal({
                     ))}
                   </div>
                   <p className="setupFieldMeta" style={{ marginTop: 14 }}>
-                    Save creates the institute first, opens a tracked onboarding run, and sends you directly into `Master defaults` to finish the seeded setup.
+                    Save creates the institute first, opens a tracked onboarding run, and sends you directly into `Master defaults` to finish the onboarding setup.
                   </p>
                 </div>
               ) : null}
@@ -999,6 +999,11 @@ export function InstituteManagementWorkspace({
   const [copiedTaskRunId, setCopiedTaskRunId] = useState<string | null>(null);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCurrentSelectedInstituteId(selectedInstituteId);
+    setCurrentInstitute(institute);
+    setCurrentOnboardingRuns(onboardingRuns);
+    setCurrentCounts(counts);
     if (selectedInstituteId && institute) {
       workspaceCacheRef.current[selectedInstituteId] = {
         counts,

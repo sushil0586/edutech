@@ -1,7 +1,9 @@
 from decimal import Decimal, InvalidOperation
 
-from django.conf import settings
 from rest_framework.exceptions import PermissionDenied
+
+from apps.accounts.models import AccountRole
+from apps.accounts.policies import has_active_role
 
 
 def _account_profile(user):
@@ -10,12 +12,12 @@ def _account_profile(user):
 
 def is_platform_admin(user) -> bool:
     profile = _account_profile(user)
-    return bool(profile and profile.is_active and profile.role == "platform_admin")
+    return has_active_role(profile, AccountRole.PLATFORM_ADMIN)
 
 
 def is_institute_admin(user) -> bool:
     profile = _account_profile(user)
-    return bool(profile and profile.is_active and profile.role == "institute_admin")
+    return has_active_role(profile, AccountRole.INSTITUTE_ADMIN)
 
 
 def _max_confirm_order_amount() -> Decimal:
@@ -67,27 +69,27 @@ def get_economy_operator_policy(*, user) -> dict:
     policy = get_or_create_economy_operator_policy_config()
     if is_platform_admin(user):
         return {
-            "role": "platform_admin",
+            "role": AccountRole.PLATFORM_ADMIN,
             "can_grant_stars": True,
             "max_grant_stars": None,
             "can_confirm_orders": True,
             "max_confirm_order_amount": None,
             "max_confirm_order_currency": None,
-            "catalog_governance_scope": "platform_only",
-            "support_scope": "cross_institute",
+            "catalog_governance_scope": policy.platform_catalog_governance_scope,
+            "support_scope": policy.platform_support_scope,
             "config_source": "database",
         }
 
     if is_institute_admin(user):
         return {
-            "role": "institute_admin",
+            "role": AccountRole.INSTITUTE_ADMIN,
             "can_grant_stars": bool(policy.institute_admin_can_grant_stars),
             "max_grant_stars": int(policy.institute_admin_max_grant_stars),
             "can_confirm_orders": bool(policy.institute_admin_can_confirm_orders),
             "max_confirm_order_amount": f"{_max_confirm_order_amount():.2f}",
             "max_confirm_order_currency": policy.institute_admin_confirm_order_currency,
-            "catalog_governance_scope": "platform_only",
-            "support_scope": "institute_only",
+            "catalog_governance_scope": policy.institute_catalog_governance_scope,
+            "support_scope": policy.institute_support_scope,
             "config_source": "database",
         }
 
@@ -97,23 +99,5 @@ def get_economy_operator_policy(*, user) -> dict:
 def get_or_create_economy_operator_policy_config():
     from apps.economy.models import EconomyOperatorPolicyConfig
 
-    defaults = {
-        "institute_admin_can_confirm_orders": getattr(
-            settings, "ECONOMY_INSTITUTE_ADMIN_CAN_CONFIRM_ORDERS", True
-        ),
-        "institute_admin_max_confirm_order_amount": getattr(
-            settings, "ECONOMY_INSTITUTE_ADMIN_MAX_CONFIRM_ORDER_AMOUNT", Decimal("5000.00")
-        ),
-        "institute_admin_confirm_order_currency": "INR",
-        "institute_admin_can_grant_stars": getattr(
-            settings, "ECONOMY_INSTITUTE_ADMIN_CAN_GRANT_STARS", True
-        ),
-        "institute_admin_max_grant_stars": getattr(
-            settings, "ECONOMY_INSTITUTE_ADMIN_MAX_GRANT_STARS", 250
-        ),
-    }
-    config_object, _ = EconomyOperatorPolicyConfig.objects.get_or_create(
-        singleton_key="default",
-        defaults=defaults,
-    )
+    config_object, _ = EconomyOperatorPolicyConfig.objects.get_or_create(singleton_key="default")
     return config_object

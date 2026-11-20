@@ -208,7 +208,7 @@ export async function loadStudentAnalyticsBundle() {
     const [results, topicPerformanceResponse, exams] = await Promise.all([
       fetchStudentResults(),
       fetchStudentTopicPerformance(summary.student_id),
-      fetchStudentAvailableExams(),
+      fetchStudentAvailableExams({ examType: "practice" }),
     ]);
 
     return {

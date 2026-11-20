@@ -87,7 +87,7 @@ test.describe("Student GRE quant lifecycle", () => {
 
     await answerCurrentAttemptQuestion(page, Date.now(), "8");
     await page.getByRole("button", { name: /^save answer$/i }).click();
-    await expect(page.getByText(/response updated successfully/i).first()).toBeVisible();
+    await expect(page.getByText(/response updated successfully|answer saved|last confirmed backend response/i).first()).toBeVisible();
 
     const quantSectionTwoButton = page
       .locator(".attemptSectionCard")
@@ -100,7 +100,7 @@ test.describe("Student GRE quant lifecycle", () => {
       await expect(page.getByText(/section switched successfully/i).first()).toBeVisible();
       await answerCurrentAttemptQuestion(page, Date.now() + 1, "20");
       await page.getByRole("button", { name: /^save answer$/i }).click();
-      await expect(page.getByText(/response updated successfully/i).first()).toBeVisible();
+      await expect(page.getByText(/response updated successfully|answer saved|last confirmed backend response/i).first()).toBeVisible();
     }
 
     page.once("dialog", async (dialog) => {

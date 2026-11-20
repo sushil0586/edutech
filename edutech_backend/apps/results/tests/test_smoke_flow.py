@@ -437,6 +437,9 @@ class AcademicAssessmentSmokeTestCase(TestCase):
         completed = mark_exam_completed(refreshed, changed_by=self.context["teacher"])
         self.assertEqual(completed.status, "completed")
 
+        refreshed_completed = refresh_exam_status(completed)
+        self.assertEqual(refreshed_completed.status, "completed")
+
     def test_mark_exam_live_promotes_scheduled_exam(self):
         exam = self.context["exam"]
         exam.start_at = timezone.now() + timedelta(minutes=30)

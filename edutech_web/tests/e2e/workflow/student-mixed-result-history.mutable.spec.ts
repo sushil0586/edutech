@@ -465,12 +465,13 @@ async function chooseCurrentQuestionOption(page: Page, optionIndex: number) {
 async function answerObjectiveAndSubmit(page: Page, optionIndex: number) {
   await chooseCurrentQuestionOption(page, optionIndex);
   await page.getByRole("button", { name: /^save answer$/i }).click();
-  await expect(page.getByRole("button", { name: /^submit test$/i })).toBeEnabled();
+  const submitButton = page.getByRole("button", { name: /^(submit test|end test)$/i });
+  await expect(submitButton).toBeEnabled();
 
   page.once("dialog", async (dialog) => {
     await dialog.accept();
   });
-  await page.getByRole("button", { name: /^submit test$/i }).click();
+  await submitButton.click();
   await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+\/summary(?:\?.*)?$/);
 }
 

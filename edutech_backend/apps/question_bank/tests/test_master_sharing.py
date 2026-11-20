@@ -31,6 +31,7 @@ from apps.question_bank.services import (
     request_master_question_access,
     sync_master_question_from_institute_question,
 )
+from apps.teachers.models import AssignmentRole, TeacherAssignment
 from common.tests.builders import AcademicAssessmentBuilder
 
 
@@ -955,5 +956,75 @@ class MasterQuestionSharingTestCase(TestCase):
                 institute=self.private_institute,
                 master_question__source_subject__code="DM-NEET-BIO",
                 status=InstituteQuestionAccessStatus.LINKED,
+            ).exists()
+        )
+
+    def test_seed_demo_shared_library_access_creates_teacher_assignment_for_base_scope(self):
+        self.builder.create_teacher_account(
+            institute=self.private_institute,
+            teacher_profile=self.private_teacher,
+            username="seed-demo-teacher",
+            password="Teacher@123",
+            email="seed-demo-teacher@example.com",
+        )
+        base_master = MasterQuestion.objects.create(
+            source_institute=self.public_institute,
+            source_program=self.public_program,
+            source_subject=self.public_subject,
+            source_topic=self.public_topic,
+            question_type="mcq_single",
+            difficulty_level="intermediate",
+            content_format="markdown_latex",
+            question_text="Base teacher-visible science question?",
+            explanation="Base teacher-visible explanation.",
+            default_marks="1.00",
+            negative_marks="0.25",
+            is_verified=True,
+            source_type=MasterQuestionSourceType.PLATFORM,
+            visibility=MasterQuestionVisibility.SHARED_BY_REQUEST,
+            metadata={"seed_case": "base_teacher_assignment"},
+        )
+        MasterQuestionOption.objects.create(
+            master_question=base_master,
+            content_format="markdown_latex",
+            option_text="Correct option",
+            option_order=1,
+            is_correct=True,
+        )
+
+        self.assertFalse(
+            TeacherAssignment.objects.filter(
+                institute=self.private_institute,
+                teacher=self.private_teacher,
+                academic_year=self.private_year,
+                program=self.private_program,
+                subject=self.private_subject,
+                assignment_role=AssignmentRole.MAIN_TEACHER,
+            ).exists()
+        )
+
+        call_command(
+            "seed_demo_shared_library_access",
+            target_institute_code="SCH001",
+            donor_institute_code="PUB001",
+            public_hub_code="PUBDLI1",
+            subject_code="CLS7-SCI",
+            question_count=1,
+            teacher_username="seed-demo-teacher",
+            unentitled_question_count=0,
+            quota_demo_question_count=0,
+            blocked_matchable_question_count=0,
+            paused_only_question_count=0,
+        )
+
+        self.assertTrue(
+            TeacherAssignment.objects.filter(
+                institute=self.private_institute,
+                teacher=self.private_teacher,
+                academic_year=self.private_year,
+                program=self.private_program,
+                subject=self.private_subject,
+                assignment_role=AssignmentRole.MAIN_TEACHER,
+                is_active=True,
             ).exists()
         )

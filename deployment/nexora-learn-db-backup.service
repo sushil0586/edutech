@@ -1,0 +1,15 @@
+[Unit]
+Description=Nexora Learn PostgreSQL backup
+Wants=postgresql.service
+After=network-online.target postgresql.service
+
+[Service]
+Type=oneshot
+Environment=APP_DIR=/var/www/nexora-learn/edutech/edutech_backend
+Environment=ENV_FILE=/var/www/nexora-learn/edutech/edutech_backend/.env.production
+Environment=BACKUP_DIR=/var/backups/nexora-learn
+Environment=RETENTION_DAYS=14
+ExecStart=/usr/local/sbin/backup-nexora-learn-db.sh
+User=ubuntu
+Group=ubuntu
+UMask=0027

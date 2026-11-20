@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthenticatedSession, hasRequiredRole } from "@/lib/auth/session";
+import {
+  PORTAL_ROLE_GROUPS,
+  getAuthenticatedSession,
+  hasRequiredRole,
+} from "@/lib/auth/session";
 
 const API_BASE_URL = (
   process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? ""
@@ -35,7 +39,10 @@ async function proxyAcademicRequest(
   }
 
   const session = await getAuthenticatedSession();
-  if (!session || !hasRequiredRole(session.profile, ["teacher", "institute_admin", "platform_admin"])) {
+  if (
+    !session ||
+    !hasRequiredRole(session.profile, PORTAL_ROLE_GROUPS.teacherScopedOperators)
+  ) {
     return NextResponse.json(
       { detail: "Portal session is not available." },
       { status: 401 },

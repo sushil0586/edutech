@@ -162,13 +162,14 @@ test.describe("Student mobile workspace sanity", () => {
     } else {
       await expect(page.locator(".studentWorkspaceFiltersCard").first()).toBeVisible();
       await expect(page.locator(".studentResultSurface, .studentAttemptsCard").first()).toBeVisible();
-      await expect(
+      await expectOneOfVisible(page, [
         page
           .getByRole("link", {
             name: /resume attempt|check attempt status|check result status|open summary|open result status|view details|open practice/i,
           })
           .first(),
-      ).toBeVisible();
+        page.getByRole("button", { name: /practice again/i }).first(),
+      ]);
     }
 
     await gotoWithRetry(page, "/app/results");

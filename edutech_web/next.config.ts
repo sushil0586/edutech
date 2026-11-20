@@ -19,6 +19,7 @@ if (/^(staging|production)$/.test(process.env.APP_ENVIRONMENT ?? "")) {
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  poweredByHeader: false,
   turbopack: {
     root: process.cwd(),
   },

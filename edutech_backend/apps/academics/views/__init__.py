@@ -1,5 +1,7 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Count, Q
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema, inline_serializer
+from rest_framework import serializers
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
@@ -57,6 +59,13 @@ from common.viewsets import SoftDeleteModelViewSetMixin
 class AcademicPresetListView(APIView):
     permission_classes = [IsAuthenticated, CanViewAcademics]
 
+    @extend_schema(
+        operation_id="v1_academics_presets_list",
+        responses=inline_serializer(
+            name="AcademicPresetListResponse",
+            fields={"presets": serializers.ListField(child=serializers.DictField())},
+        ),
+    )
     def get(self, request):
         return Response(list_academic_presets())
 
@@ -64,6 +73,25 @@ class AcademicPresetListView(APIView):
 class AcademicPresetDetailView(APIView):
     permission_classes = [IsAuthenticated, CanViewAcademics]
 
+    @extend_schema(
+        operation_id="v1_academics_presets_detail",
+        parameters=[OpenApiParameter(name="preset_code", type=str, location=OpenApiParameter.PATH)],
+        responses={
+            200: OpenApiResponse(
+                response=inline_serializer(
+                    name="AcademicPresetDetailResponse",
+                    fields={
+                        "code": serializers.CharField(),
+                        "label": serializers.CharField(),
+                        "description": serializers.CharField(required=False),
+                        "program": serializers.DictField(),
+                        "subjects": serializers.ListField(child=serializers.DictField()),
+                    },
+                )
+            ),
+            400: OpenApiResponse(description="Invalid preset code."),
+        },
+    )
     def get(self, request, preset_code):
         try:
             payload = get_academic_preset_detail(preset_code)
@@ -75,6 +103,24 @@ class AcademicPresetDetailView(APIView):
 class AcademicPresetPreviewView(APIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
 
+    @extend_schema(
+        operation_id="v1_academics_presets_preview",
+        request=AcademicPresetPreviewSerializer,
+        responses={
+            200: OpenApiResponse(
+                response=inline_serializer(
+                    name="AcademicPresetPreviewResponse",
+                    fields={
+                        "preset": serializers.DictField(),
+                        "mode": serializers.CharField(),
+                        "summary": serializers.DictField(),
+                        "operations": serializers.ListField(child=serializers.DictField()),
+                    },
+                )
+            ),
+            400: OpenApiResponse(description="Invalid preview request."),
+        },
+    )
     def post(self, request):
         serializer = AcademicPresetPreviewSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -102,6 +148,25 @@ class AcademicPresetPreviewView(APIView):
 class AcademicPresetApplyView(APIView):
     permission_classes = [IsAuthenticated, IsPlatformAdmin]
 
+    @extend_schema(
+        operation_id="v1_academics_presets_apply",
+        request=AcademicPresetApplySerializer,
+        responses={
+            201: OpenApiResponse(
+                response=inline_serializer(
+                    name="AcademicPresetApplyResponse",
+                    fields={
+                        "preset": serializers.DictField(),
+                        "mode": serializers.CharField(),
+                        "summary": serializers.DictField(),
+                        "operations": serializers.ListField(child=serializers.DictField()),
+                        "onboarding_run": serializers.DictField(required=False),
+                    },
+                )
+            ),
+            400: OpenApiResponse(description="Invalid apply request."),
+        },
+    )
     def post(self, request):
         serializer = AcademicPresetApplySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
