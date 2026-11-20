@@ -168,7 +168,7 @@ test.describe("Student mutable exam-key access flow", () => {
         await expect(page.getByText(/access key enabled successfully/i)).toBeVisible();
       }
 
-      const publishButton = page.getByRole("button", { name: /publish exam/i });
+      const publishButton = page.getByRole("button", { name: /make exam available|publish exam/i });
       if (await publishButton.count()) {
         await publishButton.click();
         await expect(page).toHaveURL(/message=/);

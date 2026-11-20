@@ -67,14 +67,6 @@ export function TeacherEditDialog({ row }: { row: TeacherRosterRow }) {
       return;
     }
 
-    resetFormFromRow();
-  }, [open, row]);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
@@ -138,7 +130,10 @@ export function TeacherEditDialog({ row }: { row: TeacherRosterRow }) {
     <>
       <button
         className="appTopbarAction setupSecondaryAction"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          resetFormFromRow();
+          setOpen(true);
+        }}
         type="button"
       >
         <span className="appTopbarActionIcon" aria-hidden="true">

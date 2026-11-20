@@ -2,6 +2,7 @@ from django.urls import path
 
 from apps.accounts.views import (
     LoginView,
+    LogoutView,
     MeView,
     OnboardingProfileView,
     PublicRegisterView,
@@ -29,6 +30,7 @@ from apps.accounts.views import (
 app_name = "accounts"
 urlpatterns = [
     path("auth/login/", LoginView.as_view(), name="login"),
+    path("auth/logout/", LogoutView.as_view(), name="logout"),
     path("auth/register/", PublicRegisterView.as_view(), name="register"),
     path("auth/register/options/", PublicRegistrationOptionsView.as_view(), name="register-options"),
     path("auth/refresh/", RefreshSessionView.as_view(), name="refresh"),

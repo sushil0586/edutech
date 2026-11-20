@@ -2924,6 +2924,7 @@ export function TeacherQuestionBankWorkspace({
                     {!isLinkedReviewMode ? (
                       <label className="questionBankCheckbox">
                         <input
+                          aria-label={`Select question: ${previewText || "Untitled question"}`}
                           checked={selectedIdsOnPage.includes(question.id)}
                           onChange={() => toggleSelection(question.id)}
                           type="checkbox"

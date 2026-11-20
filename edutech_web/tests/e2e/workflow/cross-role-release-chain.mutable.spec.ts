@@ -1,4 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import { loginAsRole, loginWithCredentials, testRequiresRole } from "../helpers/auth";
 import {
   answerAndSubmitCurrentAttempt,
@@ -27,6 +29,8 @@ const mutableStudentAttemptActionsEnabled = isMutableLaneEnabled(
 const mutableTeacherResultsActionsEnabled = isMutableLaneEnabled(
   "PLAYWRIGHT_ENABLE_MUTABLE_TEACHER_RESULTS_ACTIONS",
 );
+const phase7EvidencePath = process.env.PLAYWRIGHT_PHASE7_EVIDENCE_PATH?.trim() ?? "";
+const preservePhase7Exam = process.env.PLAYWRIGHT_PHASE7_PRESERVE_EXAM === "1";
 
 const crossRoleScenario =
   familyRuntimeScenarios.find((scenario) => scenario.presetId === "neet_mock") ??
@@ -62,8 +66,9 @@ test.describe("Cross-role release chain", () => {
     testRequiresRole("teacher") ||
       testRequiresRole("student") ||
       testRequiresRole("admin") ||
-      testRequiresRole("institute"),
-    "Teacher, student, admin, and institute Playwright credentials are required.",
+      testRequiresRole("institute") ||
+      testRequiresRole("parent"),
+    "Teacher, student, admin, institute, and parent Playwright credentials are required.",
   );
 
   test.skip(
@@ -205,8 +210,30 @@ test.describe("Cross-role release chain", () => {
         }).first(),
       ).toBeVisible();
       await expect(page.getByText(/review mode/i).first()).toBeVisible();
+
+      await loginAsRole(page, "parent");
+      await page.goto(`/parent/progress?child_id=${studentTarget.studentProfileId}`);
+      await expect(page.getByRole("heading", { name: /academic progress/i })).toBeVisible();
+      await expect(page.getByText(new RegExp(escapeRegExp(studentTarget.displayName), "i")).first()).toBeVisible();
+      await expect(page.getByText(new RegExp(escapeRegExp(created.examTitle), "i")).first()).toBeVisible();
+
+      if (phase7EvidencePath) {
+        mkdirSync(dirname(phase7EvidencePath), { recursive: true });
+        writeFileSync(
+          phase7EvidencePath,
+          `${JSON.stringify({
+            examId,
+            attemptId,
+            examTitle: created.examTitle,
+            studentProfileId: studentTarget.studentProfileId,
+            studentDisplayName: studentTarget.displayName,
+            assessmentFamily: crossRoleScenario.presetId,
+          }, null, 2)}\n`,
+          { encoding: "utf8", mode: 0o600 },
+        );
+      }
     } finally {
-      if (examId) {
+      if (examId && !preservePhase7Exam) {
         await loginAsRole(page, "teacher");
         await expectTeacherWorkspace(page);
         await deleteInstituteExamDirectly(page, examId);

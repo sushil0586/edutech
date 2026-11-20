@@ -178,95 +178,34 @@ async function createStudentsForInstitute(
     };
   });
 
-  await page.goto(`/admin/people?view=students&institute=${encodeURIComponent(scope.instituteId)}`);
-  await expect(page.getByRole("heading", { name: /student roster/i })).toBeVisible();
-  await expect(page.getByRole("combobox", { name: /select institute/i })).toHaveValue(scope.instituteId);
-
   const students: StudentTarget[] = [];
-  let selectedAcademicYearLabel = scope.academicYearName;
-  let selectedProgramLabel = scope.programName;
-  let selectedCohortLabel = scope.cohortName;
-  let selectedAcademicYearId = scope.academicYearId ?? "";
-  let selectedProgramId = scope.programId ?? "";
-  let selectedCohortId = scope.cohortId ?? "";
+  const accessToken = await backendAccessToken(page);
+  expect(scope.academicYearId).toBeTruthy();
+  expect(scope.programId).toBeTruthy();
 
   for (const definition of definitions) {
-    await page.getByRole("button", { name: /^create student$/i }).click();
-    const studentDialog = page.getByRole("dialog");
-    await expect(studentDialog.getByRole("heading", { name: /new student profile/i })).toBeVisible();
-    await studentDialog.getByLabel(/admission no/i).fill(definition.admissionNo);
-    await studentDialog.getByLabel(/first name/i).fill(definition.firstName);
-    await studentDialog.getByLabel(/last name/i).fill(definition.lastName);
-    await studentDialog.getByLabel(/^email$/i).fill(definition.email);
-    await studentDialog.getByLabel(/^phone$/i).fill(definition.phone);
-    await studentDialog.getByLabel(/guardian name/i).fill("Playwright Guardian");
-    await studentDialog.getByLabel(/guardian phone/i).fill(definition.guardianPhone);
-    await studentDialog.getByLabel(/create login after save/i).uncheck();
-
-    const firstNonEmptyOptionValue = (values: string[]) =>
-      values.find((value) => value.trim().length > 0) ?? null;
-
-    const availableAcademicYearValues = await studentDialog
-      .getByLabel(/academic year/i)
-      .locator("option")
-      .evaluateAll((options) => options.map((option) => (option as HTMLOptionElement).value));
-    const availableProgramValues = await studentDialog
-      .getByLabel(/program/i)
-      .locator("option")
-      .evaluateAll((options) => options.map((option) => (option as HTMLOptionElement).value));
-
-    const academicYearValue =
-      (scope.academicYearId && availableAcademicYearValues.includes(scope.academicYearId)
-        ? scope.academicYearId
-        : null) ?? firstNonEmptyOptionValue(availableAcademicYearValues);
-    const programValue =
-      (scope.programId && availableProgramValues.includes(scope.programId)
-        ? scope.programId
-        : null) ?? firstNonEmptyOptionValue(availableProgramValues);
-    expect(academicYearValue).not.toBeNull();
-    expect(programValue).not.toBeNull();
-
-    await studentDialog.getByLabel(/academic year/i).selectOption(academicYearValue!);
-    await studentDialog.getByLabel(/program/i).selectOption(programValue!);
-    selectedAcademicYearId = academicYearValue!;
-    selectedProgramId = programValue!;
-    selectedAcademicYearLabel = normalizeAcademicLabel(
-      await studentDialog.getByLabel(/academic year/i).locator("option:checked").textContent() ?? scope.academicYearName,
-    );
-    selectedProgramLabel = normalizeAcademicLabel(
-      await studentDialog.getByLabel(/program/i).locator("option:checked").textContent() ?? scope.programName,
-    );
-
-    const availableCohortValues = await studentDialog
-      .getByLabel(/cohort/i)
-      .locator("option")
-      .evaluateAll((options) => options.map((option) => (option as HTMLOptionElement).value));
-    const cohortValue =
-      (scope.cohortId && availableCohortValues.includes(scope.cohortId) ? scope.cohortId : null) ??
-      firstNonEmptyOptionValue(availableCohortValues);
-    if (cohortValue) {
-      await studentDialog.getByLabel(/cohort/i).selectOption(cohortValue);
-      selectedCohortId = cohortValue;
-      selectedCohortLabel = normalizeAcademicLabel(
-        await studentDialog.getByLabel(/cohort/i).locator("option:checked").textContent() ?? scope.cohortName,
-      );
-    }
-
-    const createResponsePromise = page.waitForResponse(
-      (response) =>
-        response.url().includes("/api/admin/people/students") &&
-        response.request().method() === "POST",
-    );
-    await studentDialog.getByRole("button", { name: /^create student$/i }).last().click();
-    const createResponse = await createResponsePromise;
+    const createResponse = await page.request.post(`${adminApiBaseUrl}/api/v1/students/`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      data: {
+        institute: scope.instituteId,
+        academic_year: scope.academicYearId,
+        program: scope.programId,
+        cohort: scope.cohortId || null,
+        admission_no: definition.admissionNo,
+        first_name: definition.firstName,
+        last_name: definition.lastName,
+        gender: "prefer_not_to_say",
+        email: definition.email,
+        phone: definition.phone,
+        guardian_name: "Playwright Guardian",
+        guardian_phone: definition.guardianPhone,
+        is_active: true,
+      },
+    });
     expect(createResponse.ok()).toBe(true);
-    const createPayload = (await createResponse.json()) as { id?: string };
-    const studentId = createPayload.id ?? "";
+    const student = (await createResponse.json()) as StudentRecord;
+    const studentId = student.id ?? "";
     expect(studentId).not.toBe("");
-
-    const studentResponse = await page.request.get(`/api/admin/people/students/${studentId}`);
-    expect(studentResponse.ok()).toBe(true);
-    const student = (await studentResponse.json()) as StudentRecord;
     students.push({
       admissionNo: definition.admissionNo,
       displayName: student.full_name?.trim() || `${definition.firstName} ${definition.lastName}`,
@@ -276,12 +215,6 @@ async function createStudentsForInstitute(
 
   return {
     ...scope,
-    academicYearName: selectedAcademicYearLabel,
-    programName: selectedProgramLabel,
-    cohortName: selectedCohortLabel,
-    academicYearId: selectedAcademicYearId,
-    programId: selectedProgramId,
-    cohortId: selectedCohortId,
     students,
   };
 }
@@ -432,8 +365,7 @@ async function expectAssignmentIsolation(
   }
 }
 
-async function deleteAdminExamDirectly(page: Page, examId: string) {
-  const accessToken = await backendAccessToken(page);
+async function deleteAdminExamDirectly(page: Page, accessToken: string, examId: string) {
   const response = await page.request.delete(`${adminApiBaseUrl}/api/v1/exams/${examId}/`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -451,10 +383,11 @@ test.describe("Admin multi-institute assignment isolation", () => {
   );
 
   test("@workflow @mutable admin assignment tab stays isolated per institute scope", async ({ page }) => {
-    test.setTimeout(300000);
+    test.setTimeout(420000);
 
     await loginAsRole(page, "admin");
     await expectAdminWorkspace(page);
+    const cleanupAccessToken = await backendAccessToken(page);
 
     const scopes = await discoverInstituteScopes(page);
     expect(scopes.length).toBeGreaterThanOrEqual(2);
@@ -491,16 +424,16 @@ test.describe("Admin multi-institute assignment isolation", () => {
       examIds.push(secondExam.examId);
       await expectAssignmentIsolation(page, secondExam.examId, secondLane.students, firstLane.students);
     } finally {
-      await loginAsRole(page, "admin");
-      await expectAdminWorkspace(page);
-
       for (const examId of examIds) {
-        await deleteAdminExamDirectly(page, examId);
+        await deleteAdminExamDirectly(page, cleanupAccessToken, examId);
       }
 
       for (const lane of lanes) {
         for (const student of lane.students) {
-          const deleteStudentResponse = await page.request.delete(`/api/admin/people/students/${student.studentId}`);
+          const deleteStudentResponse = await page.request.delete(
+            `${adminApiBaseUrl}/api/v1/students/${student.studentId}/`,
+            { headers: { Authorization: `Bearer ${cleanupAccessToken}` } },
+          );
           expect(deleteStudentResponse.ok()).toBe(true);
         }
       }

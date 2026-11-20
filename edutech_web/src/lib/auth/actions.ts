@@ -8,6 +8,7 @@ import {
   getPostAuthRedirectPath,
   loginWithPassword,
   registerWithPassword,
+  revokeCurrentSession,
 } from "@/lib/auth/session";
 import { LoginActionState } from "@/lib/auth/login-state";
 import {
@@ -266,7 +267,25 @@ export async function completeProfileAction(
   redirect(getPostAuthRedirectPath(profile));
 }
 
-export async function logoutAction() {
+export type LogoutActionState = {
+  message: string;
+};
+
+export async function logoutAction(
+  _previousState: LogoutActionState,
+  _formData: FormData,
+): Promise<LogoutActionState> {
+  void _previousState;
+  void _formData;
+
+  try {
+    await revokeCurrentSession();
+  } catch {
+    return {
+      message: "Logout could not be verified. Your session is still active; check your connection and try again.",
+    };
+  }
+
   await clearSessionCookies();
   redirect("/login");
 }

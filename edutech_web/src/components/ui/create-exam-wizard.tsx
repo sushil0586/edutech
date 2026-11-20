@@ -386,7 +386,7 @@ export function CreateExamWizard({
   );
   const [selectedSubjectValue, setSelectedSubjectValue] = useState(subjects[0]?.id ?? "");
   const [selectedSourceValue, setSelectedSourceValue] = useState(selectedSource);
-  const [isScopeLoading, setIsScopeLoading] = useState(false);
+  const [isScopeLoading, setIsScopeLoading] = useState(Boolean(selectedProgram));
   const [scopeError, setScopeError] = useState("");
   const [economyPolicyType, setEconomyPolicyType] = useState(initialGuidedDefaults.economyPolicyType);
   const [examTypeValue, setExamTypeValue] = useState(initialGuidedDefaults.examTypeValue);
@@ -586,7 +586,9 @@ export function CreateExamWizard({
               : "",
         );
         setSelectedSubjectValue((current) =>
-          current && nextSubjects.some((subject) => subject.id === current) ? current : "",
+          current && nextSubjects.some((subject) => subject.id === current)
+            ? current
+            : nextSubjects[0]?.id ?? "",
         );
       } catch (error) {
         if (ignore) {
@@ -1357,7 +1359,12 @@ export function CreateExamWizard({
             </button>
 
             {!isLastStep ? (
-              <button className="button buttonSecondary" onClick={moveNext} type="button">
+              <button
+                className="button buttonSecondary"
+                disabled={activeStep === 0 && isScopeLoading}
+                onClick={moveNext}
+                type="button"
+              >
                 Continue
               </button>
             ) : (

@@ -38,6 +38,13 @@ from apps.teachers.models import TeacherProfile
 
 
 SECTION_TIMER_MODES = {"section", "hybrid"}
+UNSET_ANSWER_VERSION = object()
+
+
+class AnswerConflictError(ValidationError):
+    """The caller edited an answer version that is no longer current."""
+
+
 INTEGRITY_EVENT_DEDUPE_SECONDS = 5
 REVIEW_TASK_UNRESOLVED_STATUSES = {
     ReviewTaskStatus.PENDING,
@@ -1091,6 +1098,13 @@ def switch_section(attempt, target_section):
     return attempt
 
 
+def _lock_current_attempt(attempt):
+    """Serialize answer writes using the current database row."""
+    attempt.refresh_from_db(
+        from_queryset=type(attempt).objects.select_for_update(),
+    )
+
+
 def _validate_attempt_is_editable(attempt):
     refresh_attempt_runtime_state(attempt)
     if attempt.expires_at and timezone.now() > attempt.expires_at:
@@ -1707,10 +1721,12 @@ def save_answer(
     is_marked_for_review=False,
     clear_response=False,
     skip=False,
+    expected_answer_updated_at=UNSET_ANSWER_VERSION,
 ):
     from apps.attempts.models import StudentAnswer
     from apps.results.services import bump_student_question_analytics_cache_version
 
+    _lock_current_attempt(attempt)
     _validate_attempt_is_editable(attempt)
     question_type_definition = get_question_type_definition(question.question_type)
     if question_type_definition is None:
@@ -1766,19 +1782,24 @@ def save_answer(
         answer_transcript = ""
         response_artifacts = []
 
-    answer = (
-        StudentAnswer.objects.filter(
-            attempt=attempt,
-            question=question,
-        )
-        .select_related("attempt", "question", "selected_option")
-        .first()
-    )
+    answer = StudentAnswer.objects.filter(
+        attempt=attempt,
+        question=question,
+    ).first()
+    if expected_answer_updated_at is not UNSET_ANSWER_VERSION:
+        current_version = answer.updated_at if answer is not None else None
+        if expected_answer_updated_at != current_version:
+            raise AnswerConflictError({"answer": [
+                "This answer changed in another request. Review the latest saved answer before saving again."
+            ]})
     if answer is None:
         answer = StudentAnswer(
             attempt=attempt,
             question=question,
         )
+    else:
+        answer.attempt = attempt
+        answer.question = question
 
     _assign_answer_response_fields(
         answer=answer,

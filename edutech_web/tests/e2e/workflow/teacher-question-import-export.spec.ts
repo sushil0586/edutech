@@ -34,6 +34,17 @@ async function captureDownload(page: Page, trigger: () => Promise<void>) {
 }
 
 async function expectTeacherImportBlockedState(page: Page) {
+  await expect
+    .poll(async () => {
+      const bodyText = await page.locator("body").innerText();
+      const hasBlockedState = /question-bank bulk import is not enabled for (your|this) institute yet/i.test(bodyText);
+      const hasDownloadAction = await page
+        .getByRole("button", { name: /^download template$/i })
+        .isVisible()
+        .catch(() => false);
+      return hasBlockedState || hasDownloadAction;
+    })
+    .toBe(true);
   const pageText = await page.locator("body").innerText();
   if (!/question-bank bulk import is not enabled for (your|this) institute yet/i.test(pageText)) {
     return false;

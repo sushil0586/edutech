@@ -218,7 +218,28 @@ async function expectStudentReviewReadyPractice(page: Page, examId: string, exam
     .not.toBeNull();
 }
 
-async function startPracticeFromVisibleCta(page: Page) {
+async function startPracticeFromVisibleCta(page: Page, examTitle: string) {
+  const escapedExamTitle = examTitle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const practiceRow = page.getByRole("button", {
+    name: new RegExp(escapedExamTitle, "i"),
+  }).first();
+  if (await practiceRow.isVisible().catch(() => false)) {
+    await practiceRow.click();
+  }
+
+  const selectedPracticeDialog = page.getByRole("dialog").filter({
+    has: page.getByRole("link", { name: /start practice/i }),
+  }).first();
+  if (await selectedPracticeDialog.count()) {
+    await selectedPracticeDialog.getByRole("link", { name: /start practice/i }).first().click();
+    await expect(page).toHaveURL(/\/app\/exams\/[^/?#]+(?:\?.*)?$/);
+    const detailStartButton = page.getByRole("button", { name: /^start$/i }).first();
+    await expect(detailStartButton).toBeVisible();
+    await detailStartButton.click();
+    await expect(page).toHaveURL(/\/app\/attempts\/[^/?#]+(?:\?.*)?$/);
+    return;
+  }
+
   const startPracticeButton = page.getByRole("button", {
     name: /start practice now|start practice/i,
   }).first();
@@ -483,7 +504,7 @@ test.describe("Student mutable practice actions", () => {
       await page.goto("/app/practice?practice_filter=ready");
       await expect(page.getByRole("heading", { name: /practice/i }).first()).toBeVisible();
       await expectPracticeTitleVisible(page, examTitle);
-      await startPracticeFromVisibleCta(page);
+      await startPracticeFromVisibleCta(page, examTitle);
       const startedAttemptUrl = page.url();
       const attemptMatch = startedAttemptUrl.match(/\/app\/attempts\/([^/?#]+)/);
       attemptId = attemptMatch?.[1] ?? null;
@@ -505,7 +526,7 @@ test.describe("Student mutable practice actions", () => {
       await expect(page).toHaveURL(new RegExp(`/app/attempts/${attemptId}(?:\\?.*)?$`));
       await expect(page.getByText(/test in progress|attempt locked/i).first()).toBeVisible();
 
-      const submitButton = page.getByRole("button", { name: /^submit test$/i }).first();
+      const submitButton = page.getByRole("button", { name: /^(submit test|end test)$/i }).first();
       const summaryUrlPattern = new RegExp(`/app/attempts/${attemptId}/summary\\?`);
       page.once("dialog", async (dialog) => {
         await dialog.accept();
@@ -560,7 +581,7 @@ test.describe("Student mutable practice actions", () => {
         await expect(page).toHaveURL(/message=/);
       }
 
-      const postSubmitSyncMarksButton = page.getByRole("button", { name: /sync marks/i });
+      const postSubmitSyncMarksButton = page.getByRole("button", { name: /^sync scores$/i });
       if (await postSubmitSyncMarksButton.count()) {
         await postSubmitSyncMarksButton.click();
         await expect(page).toHaveURL(/message=/);

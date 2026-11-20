@@ -64,6 +64,7 @@ class InstituteAdminCredentialMixin(serializers.Serializer):
 
 
 class InstituteSerializer(InstituteAdminCredentialMixin, serializers.ModelSerializer):
+    expected_updated_at = serializers.DateTimeField(required=False, write_only=True)
     exam_defaults = serializers.JSONField(required=False)
     onboarding_profile_code = serializers.CharField(
         max_length=80,
@@ -84,6 +85,7 @@ class InstituteSerializer(InstituteAdminCredentialMixin, serializers.ModelSerial
             "id",
             "created_at",
             "updated_at",
+            "expected_updated_at",
             "is_active",
             "name",
             "code",
@@ -333,6 +335,7 @@ class InstituteListSerializer(InstituteAdminCredentialMixin, serializers.ModelSe
         model = Institute
         fields = (
             "id",
+            "updated_at",
             "name",
             "code",
             "email",

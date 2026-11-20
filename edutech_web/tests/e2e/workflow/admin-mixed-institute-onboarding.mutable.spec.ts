@@ -239,7 +239,7 @@ async function restoreEntitlementIfNeeded(
   entitlementSnapshot: AdminQuestionBankEntitlement,
 ) {
   let entitlementId = entitlementSnapshot.id;
-  let currentStatus = entitlementSnapshot.status.toLowerCase();
+  const currentStatus = entitlementSnapshot.status.toLowerCase();
   let entitlementRow = economyPage.entitlementRow(entitlementId);
 
   if (!(await entitlementRow.isVisible().catch(() => false))) {

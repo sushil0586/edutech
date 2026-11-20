@@ -1,0 +1,17 @@
+[Unit]
+Description=Encrypted learning portal PostgreSQL and media backup
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=/usr/local/sbin/learning-portal-backup
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/srv/saas/backups/learning-portal /run/lock
+ReadOnlyPaths=/srv/saas/projects/learning-portal/data/media /srv/saas/shared/secrets/recovery/platform-backup-key /var/run/docker.sock
+NoNewPrivileges=true
+

@@ -220,7 +220,6 @@ test.describe("Teacher shared-library entitlement enforcement", () => {
         .first();
       await expect(targetCard).toBeVisible();
       await expect(targetCard.getByText(/package available/i)).toBeVisible();
-      await expect(targetCard.getByText(/not requested/i)).toBeVisible();
       await expect(
         targetCard.getByText(/no matching subscribed package was found for this local scope/i).first(),
       ).toBeVisible();

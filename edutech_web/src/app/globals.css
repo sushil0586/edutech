@@ -4296,9 +4296,45 @@ button {
   line-height: 1.65;
 }
 
+.authForm .pendingButtonContent,
+.authForm .pendingButtonContent span {
+  color: inherit;
+}
+
 .authMeta a {
   color: var(--color-brand-primary-600);
   font-weight: 700;
+}
+
+.studentAppFooterLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  align-items: center;
+  margin-top: var(--space-4);
+}
+
+.studentAppFooterLinks a {
+  color: var(--color-brand-primary-700);
+  font-weight: 700;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.logoutForm {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.logoutError {
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid rgba(234, 88, 12, 0.28);
+  border-radius: var(--radius-md);
+  background: rgba(255, 247, 237, 0.96);
+  color: #9a3412;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
 }
 
 .pendingButtonContent {
@@ -6804,6 +6840,31 @@ button {
 .statePanelFootnote {
   max-width: 42ch;
   font-size: 0.9rem;
+}
+
+.statePanel > *,
+.statePanel .placeholderPanel,
+.statePanel .placeholderGrid,
+.statePanel .placeholderCard,
+.statePanel .placeholderFooter {
+  min-width: 0;
+}
+
+.statePanel .statusPill,
+.statePanelFootnote {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+@media (max-width: 480px) {
+  .statePanel {
+    padding: 20px;
+  }
+
+  .statePanel .placeholderPanel {
+    padding: 12px;
+  }
 }
 
 .examGrid {
@@ -14634,7 +14695,7 @@ button {
 
 .sidebarSupportCard p,
 .sidebarProfile span {
-  color: var(--color-text-muted);
+  color: #4b556b;
   font-size: var(--text-sm);
   line-height: var(--leading-normal);
 }

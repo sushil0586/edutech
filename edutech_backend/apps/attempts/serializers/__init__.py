@@ -1229,6 +1229,7 @@ class AttemptStartSerializer(serializers.Serializer):
 
 
 class SaveAnswerSerializer(serializers.Serializer):
+    expected_answer_updated_at = serializers.DateTimeField(required=False, allow_null=True)
     question = serializers.UUIDField()
     selected_option = serializers.UUIDField(required=False, allow_null=True)
     selected_option_ids = serializers.ListField(

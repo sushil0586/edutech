@@ -20,6 +20,7 @@ type LocationCatalogOption = {
 
 export type AdminInstituteRecord = {
   id: string;
+  updated_at: string;
   name: string;
   code: string;
   email: string;
@@ -964,6 +965,9 @@ export function InstituteManagementWorkspace({
   const activeSelectionAbortRef = useRef<AbortController | null>(null);
   const [query, setQuery] = useState("");
   const [showActiveOnly, setShowActiveOnly] = useState(false);
+  const [directorySort, setDirectorySort] = useState("status_name");
+  const [directoryPageSize, setDirectoryPageSize] = useState(10);
+  const [directoryPage, setDirectoryPage] = useState(1);
   const [modalMode, setModalMode] = useState<"create" | "edit" | null>(null);
   const [currentSelectedInstituteId, setCurrentSelectedInstituteId] = useState<string | null>(selectedInstituteId);
   const [currentInstitute, setCurrentInstitute] = useState<AdminInstituteRecord | null>(institute);
@@ -1053,12 +1057,23 @@ export function InstituteManagementWorkspace({
         return searchable.includes(normalizedQuery);
       })
       .sort((left, right) => {
+        if (directorySort === "name_desc") return right.name.localeCompare(left.name);
+        if (directorySort === "code") return left.code.localeCompare(right.code);
+        if (directorySort === "updated_desc") {
+          return new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime();
+        }
         if (left.is_active !== right.is_active) {
           return left.is_active ? -1 : 1;
         }
         return left.name.localeCompare(right.name);
       });
-  }, [mergedInstitutes, query, showActiveOnly]);
+  }, [directorySort, mergedInstitutes, query, showActiveOnly]);
+  const directoryPageCount = Math.max(1, Math.ceil(filteredInstitutes.length / directoryPageSize));
+  const effectiveDirectoryPage = Math.min(directoryPage, directoryPageCount);
+  const visibleInstitutes = useMemo(() => {
+    const start = (effectiveDirectoryPage - 1) * directoryPageSize;
+    return filteredInstitutes.slice(start, start + directoryPageSize);
+  }, [directoryPageSize, effectiveDirectoryPage, filteredInstitutes]);
   const activeInstituteCount = useMemo(
     () => mergedInstitutes.filter((item) => item.is_active).length,
     [mergedInstitutes],
@@ -1404,7 +1419,10 @@ export function InstituteManagementWorkspace({
       const response = await fetch(`/api/admin/institutes/${currentInstitute.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          ...payload,
+          expected_updated_at: currentInstitute.updated_at,
+        }),
       });
 
       const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
@@ -1578,7 +1596,10 @@ export function InstituteManagementWorkspace({
         <div className="adminInstituteToolbarActions">
           <input
             className="adminInstituteSearch"
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setDirectoryPage(1);
+            }}
             placeholder="Search by name, code, city, or email"
             type="search"
             value={query}
@@ -1586,13 +1607,47 @@ export function InstituteManagementWorkspace({
           <label className="setupToggle adminInstituteFilterToggle">
             <input
               checked={showActiveOnly}
-              onChange={(event) => setShowActiveOnly(event.target.checked)}
+              onChange={(event) => {
+                setShowActiveOnly(event.target.checked);
+                setDirectoryPage(1);
+              }}
               type="checkbox"
             />
             <span>
               Active only
               <small>Hide inactive records from the table.</small>
             </span>
+          </label>
+          <label>
+            <span className="srOnly">Sort institutes</span>
+            <select
+              aria-label="Sort institutes"
+              onChange={(event) => {
+                setDirectorySort(event.target.value);
+                setDirectoryPage(1);
+              }}
+              value={directorySort}
+            >
+              <option value="status_name">Active, then name</option>
+              <option value="name_desc">Name Z to A</option>
+              <option value="code">Code A to Z</option>
+              <option value="updated_desc">Recently updated</option>
+            </select>
+          </label>
+          <label>
+            <span className="srOnly">Institutes per page</span>
+            <select
+              aria-label="Institutes per page"
+              onChange={(event) => {
+                setDirectoryPageSize(Number(event.target.value));
+                setDirectoryPage(1);
+              }}
+              value={directoryPageSize}
+            >
+              <option value={5}>5 per page</option>
+              <option value={10}>10 per page</option>
+              <option value={25}>25 per page</option>
+            </select>
           </label>
           <button className="button buttonPrimary" onClick={() => setModalMode("create")} type="button">
             Add Institute
@@ -1634,7 +1689,7 @@ export function InstituteManagementWorkspace({
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredInstitutes.map((item) => {
+                  {visibleInstitutes.map((item) => {
                     const isSelected = item.id === currentSelectedInstituteId;
                     return (
                       <tr
@@ -1710,6 +1765,27 @@ export function InstituteManagementWorkspace({
               <p>No institutes matched the current filter.</p>
             </div>
           )}
+          {filteredInstitutes.length > directoryPageSize ? (
+            <nav aria-label="Institute directory pagination" className="adminInstituteActionRow">
+              <button
+                className="button buttonGhost"
+                disabled={effectiveDirectoryPage === 1}
+                onClick={() => setDirectoryPage((current) => Math.max(1, current - 1))}
+                type="button"
+              >
+                Previous
+              </button>
+              <span aria-live="polite">Page {effectiveDirectoryPage} of {directoryPageCount}</span>
+              <button
+                className="button buttonGhost"
+                disabled={effectiveDirectoryPage === directoryPageCount}
+                onClick={() => setDirectoryPage((current) => Math.min(directoryPageCount, current + 1))}
+                type="button"
+              >
+                Next
+              </button>
+            </nav>
+          ) : null}
         </article>
 
         <article className="contentCard adminInstituteDetailCard">

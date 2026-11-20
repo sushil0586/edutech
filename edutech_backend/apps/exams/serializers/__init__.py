@@ -2435,6 +2435,214 @@ class StudentExamFollowUpSerializer(StudentExamAvailabilitySerializer):
         }
 
 
+class StudentExamDiscoverySerializer(StudentExamAvailabilitySerializer):
+    active_attempt = serializers.SerializerMethodField()
+    subject_name = serializers.SerializerMethodField()
+
+    class Meta(StudentExamAvailabilitySerializer.Meta):
+        fields = (
+            "id",
+            "title",
+            "code",
+            "exam_type",
+            "status",
+            "subject_name",
+            "duration_minutes",
+            "start_at",
+            "end_at",
+            "attempts_used",
+            "remaining_attempts",
+            "active_attempt",
+            "availability_state",
+            "can_resume",
+            "latest_attempt_status",
+            "source_type",
+            "source_label",
+            "source_name",
+            "source_teacher_id",
+            "source_teacher_name",
+        )
+
+    def get_active_attempt(self, obj):
+        attempt = self._active_attempt(obj)
+        if attempt is None:
+            return None
+        return {
+            "id": str(attempt.id),
+            "status": attempt.status,
+        }
+
+    def get_availability_state(self, obj):
+        return self._availability_state_value(obj)
+
+    def get_subject_name(self, obj):
+        subject = getattr(obj, "subject", None)
+        if subject is not None and getattr(subject, "name", None):
+            return subject.name
+        return "Mixed Subjects"
+
+
+class StudentExamDashboardSerializer(StudentExamAvailabilitySerializer):
+    economy_access = serializers.SerializerMethodField()
+    active_attempt = serializers.SerializerMethodField()
+
+    class Meta(StudentExamAvailabilitySerializer.Meta):
+        fields = (
+            "id",
+            "title",
+            "code",
+            "exam_type",
+            "status",
+            "subject_name",
+            "primary_subject",
+            "primary_subject_name",
+            "is_multi_subject",
+            "section_subjects",
+            "duration_minutes",
+            "start_at",
+            "end_at",
+            "attempts_used",
+            "remaining_attempts",
+            "active_attempt",
+            "availability_state",
+            "can_start",
+            "can_resume",
+            "result_published",
+            "latest_attempt_status",
+            "source_type",
+            "source_label",
+            "source_name",
+            "source_teacher_id",
+            "source_teacher_name",
+            "economy_access",
+        )
+
+    def get_economy_access(self, obj):
+        access = self._economy_access(obj)
+        payload = {
+            "content_type": access.get("content_type", ""),
+            "content_key": access.get("content_key", ""),
+            "subject_id": access.get("subject_id"),
+            "star_cost": int(access.get("star_cost") or 0),
+            "requires_unlock": bool(access.get("requires_unlock")),
+            "can_unlock_with_stars": bool(access.get("can_unlock_with_stars")),
+            "is_unlocked": bool(access.get("is_unlocked")),
+            "is_locked": bool(access.get("is_locked")),
+            "lock_reason_message": access.get("lock_reason_message", ""),
+        }
+        subscription = serialize_subscription_allowance_resolution(
+            access.get("subscription_resolution")
+        )
+        if subscription["is_applicable"]:
+            payload["subscription_resolution"] = {
+                "is_applicable": subscription["is_applicable"],
+                "is_covered": subscription["is_covered"],
+                "included_allowance": subscription["included_allowance"],
+                "remaining_allowance": subscription["remaining_allowance"],
+                "reason_message": subscription["reason_message"],
+            }
+        return payload
+
+    def get_can_start(self, obj):
+        if self._active_attempt(obj) is not None:
+            return False
+        if self._availability_state_value(obj) != "available_now":
+            return False
+        if self._economy_access(obj)["is_locked"]:
+            return False
+        return self._start_access(obj)["is_allowed"]
+
+    def get_active_attempt(self, obj):
+        attempt = self._active_attempt(obj)
+        if attempt is None:
+            return None
+        return {
+            "id": str(attempt.id),
+            "status": attempt.status,
+        }
+
+
+class StudentExamCatalogSerializer(StudentExamDashboardSerializer):
+    security_policy = serializers.SerializerMethodField()
+
+    class Meta(StudentExamDashboardSerializer.Meta):
+        fields = (
+            "id",
+            "title",
+            "code",
+            "exam_type",
+            "attempt_policy",
+            "access_key_enabled",
+            "status",
+            "subject_name",
+            "primary_subject",
+            "primary_subject_name",
+            "is_multi_subject",
+            "section_subjects",
+            "duration_minutes",
+            "start_at",
+            "end_at",
+            "total_marks",
+            "passing_marks",
+            "attempts_used",
+            "remaining_attempts",
+            "active_attempt",
+            "availability_state",
+            "can_start",
+            "can_resume",
+            "review_available",
+            "result_published",
+            "latest_attempt_status",
+            "security_mode",
+            "security_policy",
+            "source_type",
+            "source_label",
+            "source_name",
+            "source_teacher_id",
+            "source_teacher_name",
+            "economy_access",
+        )
+
+    def get_security_policy(self, obj):
+        return {
+            "student_label": resolve_security_policy(obj).get("student_label", ""),
+        }
+
+    def get_economy_access(self, obj):
+        access = self._economy_access(obj)
+        subscription = serialize_subscription_allowance_resolution(
+            access.get("subscription_resolution")
+        )
+        is_locked = bool(access.get("is_locked"))
+        requires_unlock = bool(access.get("requires_unlock"))
+        can_unlock_with_stars = bool(access.get("can_unlock_with_stars"))
+        payload = {
+            "star_cost": int(access.get("star_cost") or 0),
+            "requires_unlock": requires_unlock,
+            "can_unlock_with_stars": can_unlock_with_stars,
+            "is_unlocked": bool(access.get("is_unlocked")),
+            "is_locked": is_locked,
+            "lock_reason_message": access.get("lock_reason_message", ""),
+        }
+        if is_locked or requires_unlock or can_unlock_with_stars:
+            payload.update(
+                {
+                    "content_type": access.get("content_type", ""),
+                    "content_key": access.get("content_key", ""),
+                    "subject_id": access.get("subject_id"),
+                }
+            )
+        if subscription["is_applicable"]:
+            payload["subscription_resolution"] = {
+                "is_applicable": subscription["is_applicable"],
+                "is_covered": subscription["is_covered"],
+                "included_allowance": subscription["included_allowance"],
+                "remaining_allowance": subscription["remaining_allowance"],
+                "reason_message": subscription["reason_message"],
+            }
+        return payload
+
+
 class StudentExamReadinessSerializer(StudentExamDetailSerializer):
     def _availability_serializer(self, obj):
         return StudentExamAvailabilitySerializer(

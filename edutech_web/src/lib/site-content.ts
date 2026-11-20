@@ -6,7 +6,11 @@ export const primaryNavigation = [
   { href: "/resources", label: "Resources" },
 ] as const;
 
+export const launchScopeStatement =
+  "Nexora's current public launch focuses on student learning journeys for school and competitive preparation, guided teacher access, and managed institute onboarding. Parent access remains limited-rollout, and institute setup is not positioned as fully self-serve.";
+
 export const homePageContent = {
+  launchScopeStatement,
   hero: {
     eyebrow: "India's complete learning platform",
     titleLeading: "Better Practice.",

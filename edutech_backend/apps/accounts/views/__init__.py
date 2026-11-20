@@ -4,6 +4,7 @@ from decimal import Decimal
 from django.core.cache import cache
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.db.models import Case, Count, Exists, IntegerField, OuterRef, Prefetch, Q, Value, When
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema, inline_serializer
@@ -14,7 +15,6 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenRefreshView
-from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.accounts.permissions import (
     CanBuildExams,
@@ -46,9 +46,11 @@ from apps.accounts.serializers import (
     AccountProfileSerializer,
     CreateLoginSerializer,
     LoginSerializer,
+    LogoutSerializer,
     OnboardingProfileSerializer,
     PublicRegistrationSerializer,
     RefreshTokenSerializer,
+    issue_session_tokens,
     ResetPasswordSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
@@ -325,7 +327,7 @@ class PublicRegisterView(APIView):
         serializer.is_valid(raise_exception=True)
         account_profile = serializer.save()
         user = account_profile.user
-        refresh = RefreshToken.for_user(user)
+        refresh = issue_session_tokens(user)
         create_activation_audit_log(
             user=user,
             institute=account_profile.institute,
@@ -435,6 +437,34 @@ class RefreshSessionView(TokenRefreshView):
     permission_classes = [AllowAny]
     throttle_classes = [TokenRefreshRateThrottle]
     serializer_class = RefreshTokenSerializer
+
+
+class LogoutView(APIView):
+    permission_classes = [AllowAny]
+
+    @extend_schema(
+        request=LogoutSerializer,
+        responses=inline_serializer(
+            name="LogoutResponse",
+            fields={"detail": serializers.CharField()},
+        ),
+    )
+    def post(self, request):
+        serializer = LogoutSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        with transaction.atomic():
+            session = serializer.save()
+            if session is not None:
+                create_audit_log(
+                    user=session.user,
+                    institute=getattr(getattr(session.user, "account_profile", None), "institute", None),
+                    action="logout",
+                    entity_type="user",
+                    entity_id=session.user_id,
+                    message="User logged out successfully.",
+                    request=request,
+                )
+        return Response({"detail": "Session revoked."}, status=status.HTTP_200_OK)
 
 
 class StudentCreateLoginView(APIView):

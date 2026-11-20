@@ -59,6 +59,99 @@ class ParentApiTestCase(TestCase):
 
         self.assertEqual(response.status_code, 403)
 
+    def test_parent_can_view_multiple_active_children(self):
+        second_student = self.builder.create_student(
+            institute=self.context["institute"],
+            academic_year=self.context["academic_year"],
+            program=self.context["program"],
+            cohort=self.context["cohort"],
+            admission_no="P6P-MULTI-002",
+            first_name="Mira",
+            last_name="Sharma",
+            email="p6p-multi@example.com",
+        )
+        ParentChildRelationship.objects.create(
+            institute=self.context["institute"],
+            parent_profile=self.parent_profile,
+            student=second_student,
+            relationship_type="mother",
+            can_view_progress=True,
+            can_view_results=True,
+            can_receive_alerts=True,
+            status=ParentRelationshipStatus.ACTIVE,
+        )
+
+        response = self.client.get("/api/v1/parent/children/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 2)
+        self.assertEqual(
+            {row["student_id"] for row in response.data},
+            {str(self.context["student"].id), str(second_student.id)},
+        )
+
+    def test_revoked_relationship_immediately_loses_parent_scope(self):
+        self.relationship.status = ParentRelationshipStatus.REVOKED
+        self.relationship.save(update_fields=["status", "updated_at"])
+
+        list_response = self.client.get("/api/v1/parent/children/")
+        detail_response = self.client.get(
+            f"/api/v1/parent/children/{self.context['student'].id}/"
+        )
+
+        self.assertEqual(list_response.status_code, 200)
+        self.assertEqual(list_response.data, [])
+        self.assertEqual(detail_response.status_code, 403)
+
+    def test_progress_permission_is_enforced_per_relationship(self):
+        self.relationship.can_view_progress = False
+        self.relationship.save(update_fields=["can_view_progress", "updated_at"])
+
+        response = self.client.get(
+            f"/api/v1/parent/progress/?child_id={self.context['student'].id}"
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_parent_cannot_access_child_from_another_institute(self):
+        other_institute = self.builder.create_institute(
+            name="Phase 6 Other Institute",
+            code="P6PX",
+            email="p6px@example.com",
+        )
+        other_year = self.builder.create_academic_year(
+            other_institute,
+            name="2027-2028",
+        )
+        other_program = self.builder.create_program(
+            other_institute,
+            name="Phase 6 Program",
+            code="P6P",
+        )
+        other_cohort = self.builder.create_cohort(
+            other_institute,
+            other_program,
+            other_year,
+            name="Phase 6 Cohort",
+            code="P6C",
+        )
+        other_student = self.builder.create_student(
+            institute=other_institute,
+            academic_year=other_year,
+            program=other_program,
+            cohort=other_cohort,
+            admission_no="P6P-OTHER-001",
+            first_name="Other",
+            last_name="Tenant",
+            email="p6p-other@example.com",
+        )
+
+        response = self.client.get(
+            f"/api/v1/parent/children/{other_student.id}/"
+        )
+
+        self.assertEqual(response.status_code, 403)
+
     def test_parent_can_view_dashboard_summary_for_linked_child(self):
         response = self.client.get(
             f"/api/v1/parent/dashboard/summary/?child_id={self.context['student'].id}"

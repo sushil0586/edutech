@@ -1,0 +1,30 @@
+(learning_portal_routes) {
+    encode zstd gzip
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        X-Frame-Options "DENY"
+        -Server
+    }
+
+    handle /api/v1/* {
+        reverse_proxy learning-portal-api-gateway-1:8080
+    }
+
+    handle /django-admin* {
+        reverse_proxy learning-portal-api-gateway-1:8080
+    }
+
+    handle /static/* {
+        reverse_proxy learning-portal-api-gateway-1:8080
+    }
+
+    handle {
+        reverse_proxy learning-portal-web-1:3000
+    }
+}
+
+learn.accerio.in {
+    import learning_portal_routes
+}

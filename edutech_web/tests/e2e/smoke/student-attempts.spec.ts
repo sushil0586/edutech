@@ -238,8 +238,8 @@ test.describe("Student smoke journeys", () => {
       ? page.getByRole("link", { name: /resume attempt|open practice|practice again/i }).first()
       : page.getByRole("link", { name: /view details|check attempt status|check result status/i }).first();
     const examsHref = await examsLink.getAttribute("href");
-    expect(examsHref).toMatch(/\/app\/(exams|attempts|results)/);
+    expect(examsHref).toMatch(/\/app\/(exams|practice|attempts|results)/);
     await gotoWithRetry(page, examsHref!);
-    await expect(page).toHaveURL(/\/app\/(exams|attempts|results)/);
+    await expect(page).toHaveURL(/\/app\/(exams|practice|attempts|results)/);
   });
 });

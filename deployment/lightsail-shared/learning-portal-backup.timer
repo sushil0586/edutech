@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily encrypted learning portal backup
+
+[Timer]
+OnCalendar=*-*-* 01:30:00 UTC
+Persistent=true
+RandomizedDelaySec=10m
+Unit=learning-portal-backup.service
+
+[Install]
+WantedBy=timers.target

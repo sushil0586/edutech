@@ -34,12 +34,12 @@ async function captureDownload(page: Page, trigger: () => Promise<void>) {
 }
 
 async function expectInstituteImportBlockedState(page: Page) {
-  const pageText = await page.locator("body").innerText();
-  if (!/question-bank bulk import is not enabled for (your|this) institute yet/i.test(pageText)) {
+  const entitlementRequired = page.getByText(/feature entitlement required/i);
+  if ((await entitlementRequired.count()) === 0) {
     return false;
   }
 
-  await expect(page.getByText(/feature entitlement required/i)).toBeVisible();
+  await expect(entitlementRequired).toBeVisible();
   await expect(page.getByText(/subscription controlled/i)).toBeVisible();
   await expect(page.getByRole("link", { name: /open economy oversight|back to question bank/i })).toBeVisible();
   return true;

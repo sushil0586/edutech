@@ -275,6 +275,27 @@ class MasterQuestionLibraryApiTests(APITestCase):
         self.assertTrue(all(item["access_availability"] == "subscription_required" for item in science_rows))
         self.assertTrue(all(item["matching_packages"] == [] for item in science_rows))
 
+    def test_teacher_master_library_keeps_rows_visible_when_matching_entitlement_is_paused(self):
+        entitlement, _ = grant_institute_question_bank_entitlement(
+            institute=self.private_institute,
+            question_bank_package=self.package,
+        )
+        entitlement.status = InstituteQuestionEntitlementStatus.PAUSED
+        entitlement.save(update_fields=["status", "updated_at"])
+        self.client.force_authenticate(user=self.teacher_user)
+
+        response = self.client.get("/api/v1/question-bank/master-library/")
+
+        self.assertEqual(response.status_code, 200)
+        returned_ids = {item["id"] for item in response.data["results"]}
+        self.assertIn(str(self.master_question.id), returned_ids)
+        paused_row = next(
+            item for item in response.data["results"] if item["id"] == str(self.master_question.id)
+        )
+        self.assertFalse(paused_row["has_access"])
+        self.assertFalse(paused_row["has_entitlement"])
+        self.assertEqual(paused_row["access_availability"], "subscription_required")
+
     def test_teacher_master_library_available_only_filters_out_subjects_without_matching_scope(self):
         grant_institute_question_bank_entitlement(
             institute=self.private_institute,

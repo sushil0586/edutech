@@ -11,6 +11,9 @@ class InstituteManagementMode(models.TextChoices):
 
 
 class Institute(BaseModel):
+    is_suspended = models.BooleanField(default=False, db_index=True)
+    suspended_at = models.DateTimeField(blank=True, null=True)
+    suspension_reason = models.CharField(max_length=500, blank=True)
     name = models.CharField(max_length=255, db_index=True)
     code = models.CharField(max_length=50, unique=True)
     email = models.EmailField(blank=True)

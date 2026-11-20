@@ -68,6 +68,32 @@ test.describe("Teacher mutable exam builder actions", () => {
       await page.locator('input[name="passing_marks"]').fill("5");
       await page.locator('textarea[name="description"]').fill(examDescription);
       await page.locator('textarea[name="instructions"]').fill(examInstructions);
+      const programSelect = page.locator('select[name="program"]').first();
+      if ((await programSelect.inputValue()) === "") {
+        const programValue = await programSelect
+          .locator("option")
+          .filter({ hasText: /class 10 foundation/i })
+          .first()
+          .getAttribute("value");
+        expect(programValue).not.toBeNull();
+        await programSelect.selectOption(programValue!);
+      }
+      const subjectSelect = page.locator('select[name="subject"]').first();
+      if ((await subjectSelect.inputValue()) === "") {
+        const subjectOption = await subjectSelect.locator("option").evaluateAll((options) => {
+          const populated = options.find((option) => /mathematics/i.test(option.textContent ?? ""));
+          const fallback = options.find((option) => (option as HTMLOptionElement).value.trim().length > 0);
+          const selected = populated ?? fallback;
+          return selected
+            ? {
+                value: (selected as HTMLOptionElement).value,
+                label: (selected.textContent ?? "").trim(),
+              }
+            : null;
+        });
+        expect(subjectOption).not.toBeNull();
+        await subjectSelect.selectOption(subjectOption!.value);
+      }
       await page.locator('input[name="allow_late_submit"]').check();
       await page.locator('input[name="randomize_questions"]').check();
       await page.getByRole("button", { name: /save exam settings/i }).click();

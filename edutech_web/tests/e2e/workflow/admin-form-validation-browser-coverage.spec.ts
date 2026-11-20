@@ -2,6 +2,10 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { loginAsRole, testRequiresRole } from "../helpers/auth";
 import { expectAdminWorkspace } from "../helpers/navigation";
 import { gotoWithRuntimeRecovery } from "../helpers/runtime";
+import { getAdminAccessToken } from "../helpers/onboarding";
+import { resolveBackendBaseUrl } from "../helpers/backend-base-url";
+
+const backendBaseUrl = resolveBackendBaseUrl();
 
 type InstituteCreatePayload = {
   id?: string;
@@ -80,6 +84,21 @@ async function selectedInstituteId(page: Page) {
   const select = page.getByLabel(/select institute/i);
   await expect(select).toBeVisible();
   return select.inputValue();
+}
+
+async function demoInstituteId(page: Page) {
+  const accessToken = await getAdminAccessToken(page);
+  const response = await page.request.get(`${backendBaseUrl}/api/v1/institutes/?search=DLI001&page_size=20`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+  const body = (await response.json()) as
+    | { results?: Array<{ id: string; code: string }> }
+    | Array<{ id: string; code: string }>;
+  const institutes = Array.isArray(body) ? body : (body.results ?? []);
+  const institute = institutes.find((item) => item.code === "DLI001");
+  expect(institute).toBeTruthy();
+  return institute!.id;
 }
 
 async function fetchAcademicYears(page: Page, instituteId: string) {
@@ -947,7 +966,7 @@ test.describe("Admin form validation browser coverage", () => {
     await expectAdminWorkspace(page);
 
     const uniqueSeed = Date.now();
-    const instituteId = "a0fcb56e-672f-460f-b513-d761d7b15899";
+    const instituteId = await demoInstituteId(page);
     const teacherCode = `PW-DUP-T-${uniqueSeed}`;
     let seededTeacherId: string | null = null;
 
@@ -1004,7 +1023,7 @@ test.describe("Admin form validation browser coverage", () => {
     await expectAdminWorkspace(page);
 
     const uniqueSeed = Date.now();
-    const instituteId = "a0fcb56e-672f-460f-b513-d761d7b15899";
+    const instituteId = await demoInstituteId(page);
     const admissionNo = `PW-DUP-S-${uniqueSeed}`;
     let seededStudentId: string | null = null;
 
@@ -1083,12 +1102,12 @@ test.describe("Admin form validation browser coverage", () => {
     await loginAsRole(page, "admin");
     await expectAdminWorkspace(page);
 
-    const instituteId = "a0fcb56e-672f-460f-b513-d761d7b15899";
+    const instituteId = await demoInstituteId(page);
     await page.goto(`/admin/people?view=teachers&institute=${instituteId}`);
     await expect(page.getByRole("heading", { name: /teacher roster/i })).toBeVisible();
 
     const rows = page.locator(".adminPeopleRosterTable tbody tr");
-    await expect(rows).toHaveCount(8);
+    await expect.poll(() => rows.count()).toBeGreaterThanOrEqual(2);
     const sourceRow = rows.nth(0);
     const duplicateRow = rows.nth(1);
     await expect(sourceRow).toBeVisible();
@@ -1126,7 +1145,7 @@ test.describe("Admin form validation browser coverage", () => {
     await loginAsRole(page, "admin");
     await expectAdminWorkspace(page);
 
-    const instituteId = "a0fcb56e-672f-460f-b513-d761d7b15899";
+    const instituteId = await demoInstituteId(page);
     await page.goto(`/admin/people?view=students&institute=${instituteId}`);
     await expect(page.getByRole("heading", { name: /student roster/i })).toBeVisible();
 

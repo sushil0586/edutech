@@ -106,6 +106,22 @@ class AccountProfile(BaseModel):
         return f"{self.user.username} - {self.role}"
 
 
+class AccountSession(BaseModel):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="account_sessions",
+    )
+    expires_at = models.DateTimeField()
+    revoked_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "revoked_at", "expires_at"]),
+        ]
+
+
 class PasswordResetRequest(BaseModel):
     user = models.ForeignKey(
         User,

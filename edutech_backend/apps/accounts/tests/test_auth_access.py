@@ -1554,6 +1554,29 @@ class AuthenticationAccessControlTestCase(TestCase):
             InstituteManagementMode.PUBLIC_INSTITUTE_MANAGED,
         )
 
+    def test_platform_admin_stale_institute_update_is_rejected_without_mutation(self):
+        self._authenticate_with_token("platform-admin-cred", "Platform@123")
+        institute = self.context["institute"]
+        stale_version = institute.updated_at.isoformat()
+
+        first_response = self.client.patch(
+            f"/api/v1/institutes/{institute.id}/",
+            {"name": "Authoritative institute name", "expected_updated_at": stale_version},
+            format="json",
+        )
+        self.assertEqual(first_response.status_code, 200)
+
+        stale_response = self.client.patch(
+            f"/api/v1/institutes/{institute.id}/",
+            {"name": "Stale overwrite", "expected_updated_at": stale_version},
+            format="json",
+        )
+        self.assertEqual(stale_response.status_code, 409)
+        self.assertEqual(stale_response.data["code"], "stale_update")
+
+        institute.refresh_from_db()
+        self.assertEqual(institute.name, "Authoritative institute name")
+
     def test_institute_admin_cannot_update_institute_management_mode(self):
         self._authenticate_with_token("institute-admin-auth", "Admin@123")
 

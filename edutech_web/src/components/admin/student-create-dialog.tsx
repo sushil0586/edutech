@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type AcademicYearRecord = {
   id: string;
@@ -88,6 +88,9 @@ function StudentCreateDialogPanel({
   const [isActive, setIsActive] = useState(true);
   const [createLogin, setCreateLogin] = useState(true);
   const [fieldErrors, setFieldErrors] = useState<StudentFieldErrors>({});
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const admissionNoRef = useRef<HTMLInputElement>(null);
+  const firstNameRef = useRef<HTMLInputElement>(null);
 
   const filteredCohorts = useMemo(
     () =>
@@ -100,16 +103,46 @@ function StudentCreateDialogPanel({
   );
 
   useEffect(() => {
+    const focusTimer = window.setTimeout(() => {
+      if (fieldErrors.admission_no) {
+        admissionNoRef.current?.focus();
+      } else if (fieldErrors.first_name) {
+        firstNameRef.current?.focus();
+      }
+    }, 0);
+    return () => window.clearTimeout(focusTimer);
+  }, [fieldErrors]);
+
+  useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         onClose();
+        return;
+      }
+      if (event.key === "Tab" && dialogRef.current) {
+        const focusable = Array.from(
+          dialogRef.current.querySelectorAll<HTMLElement>(
+            'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+          ),
+        ).filter((element) => element.offsetParent !== null);
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (!first || !last) return;
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
+    requestAnimationFrame(() => dialogRef.current?.querySelector<HTMLElement>("button, input, select, textarea")?.focus());
     return () => {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
@@ -133,6 +166,7 @@ function StudentCreateDialogPanel({
     if (Object.keys(nextFieldErrors).length > 0) {
       setFieldErrors(nextFieldErrors);
       onMessage("Fill the required fields to continue.");
+      (nextFieldErrors.admission_no ? admissionNoRef.current : firstNameRef.current)?.focus();
       return;
     }
 
@@ -233,10 +267,12 @@ function StudentCreateDialogPanel({
       onClick={handleOverlayClick}
     >
       <div
-        aria-modal="true"
-        className="rosterImportDialog dashboardPanel"
-        onClick={(event) => event.stopPropagation()}
-        role="dialog"
+      aria-modal="true"
+      className="rosterImportDialog dashboardPanel"
+      onClick={(event) => event.stopPropagation()}
+      ref={dialogRef}
+      role="dialog"
+      tabIndex={-1}
       >
         <div className="studentPageTight" data-dialog-session={dialogSessionKey}>
           <div className="academicSectionHeader">
@@ -256,26 +292,30 @@ function StudentCreateDialogPanel({
             <label className="setupField">
               <span>Admission no</span>
               <input
+                aria-describedby={fieldErrors.admission_no ? `student-admission-error-${dialogSessionKey}` : undefined}
                 aria-invalid={Boolean(fieldErrors.admission_no)}
                 autoComplete="new-password"
                 className={fieldErrors.admission_no ? "setupFieldInvalid" : undefined}
                 name={`student-admission-no-${dialogSessionKey}`}
+                ref={admissionNoRef}
                 value={admissionNo}
                 onChange={(event) => setAdmissionNo(event.target.value)}
               />
-              {fieldErrors.admission_no ? <small className="setupFieldError">{fieldErrors.admission_no}</small> : null}
+              {fieldErrors.admission_no ? <small className="setupFieldError" id={`student-admission-error-${dialogSessionKey}`}>{fieldErrors.admission_no}</small> : null}
             </label>
             <label className="setupField">
               <span>First name</span>
               <input
+                aria-describedby={fieldErrors.first_name ? `student-first-name-error-${dialogSessionKey}` : undefined}
                 aria-invalid={Boolean(fieldErrors.first_name)}
                 autoComplete="new-password"
                 className={fieldErrors.first_name ? "setupFieldInvalid" : undefined}
                 name={`student-first-name-${dialogSessionKey}`}
+                ref={firstNameRef}
                 value={firstName}
                 onChange={(event) => setFirstName(event.target.value)}
               />
-              {fieldErrors.first_name ? <small className="setupFieldError">{fieldErrors.first_name}</small> : null}
+              {fieldErrors.first_name ? <small className="setupFieldError" id={`student-first-name-error-${dialogSessionKey}`}>{fieldErrors.first_name}</small> : null}
             </label>
             <label className="setupField">
               <span>Last name</span>
@@ -436,7 +476,7 @@ function StudentCreateDialogPanel({
           </div>
 
           <div className="setupFieldActions">
-            <button className="appTopbarAction" disabled={loading} onClick={() => void submitStudent()} type="button">
+            <button className="appTopbarAction" disabled={loading} onClick={() => void submitStudent()} onMouseDown={(event) => event.preventDefault()} type="button">
               <span className="appTopbarActionIcon" aria-hidden="true">⌘</span>
               {loading ? "Saving..." : "Create student"}
             </button>
@@ -464,14 +504,16 @@ export function StudentCreateDialog({
   const [open, setOpen] = useState(false);
   const [dialogSessionKey, setDialogSessionKey] = useState(0);
   const [message, setMessage] = useState("");
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const portalTarget = typeof document === "undefined" ? null : document.body;
 
-  function closeDialog(options?: { preserveMessage?: boolean }) {
+  const closeDialog = useCallback((options?: { preserveMessage?: boolean }) => {
     setOpen(false);
+    requestAnimationFrame(() => triggerRef.current?.focus());
     if (!options?.preserveMessage) {
       setMessage("");
     }
-  }
+  }, []);
 
   return (
     <div className="accountActionStack">
@@ -484,6 +526,7 @@ export function StudentCreateDialog({
             setOpen(true);
           }}
           type="button"
+          ref={triggerRef}
         >
           <span className="appTopbarActionIcon" aria-hidden="true">
             +
@@ -492,7 +535,7 @@ export function StudentCreateDialog({
         </button>
       </div>
 
-      {message ? <div className="featurePlaceholder statePanel"><p>{message}</p></div> : null}
+      {message ? <div aria-live="polite" className="featurePlaceholder statePanel" role="status"><p>{message}</p></div> : null}
 
       {open && portalTarget
         ? createPortal(

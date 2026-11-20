@@ -382,6 +382,22 @@ export async function clearSessionCookies() {
   }
 }
 
+export async function revokeCurrentSession() {
+  const cookieStore = await cookies();
+  const refresh = cookieStore.get(REFRESH_COOKIE)?.value ?? "";
+  if (!refresh) {
+    throw new AuthenticationError(
+      "We could not verify server-side logout. Please retry while your session is connected.",
+      "logout_session_missing",
+    );
+  }
+
+  await requestAuthJson<Record<string, never>>("/api/v1/auth/logout/", {
+    method: "POST",
+    body: JSON.stringify({ refresh }),
+  });
+}
+
 export async function loginWithPassword(username: string, password: string) {
   const payload = await requestAuthJson<LoginResponse>("/api/v1/auth/login/", {
     method: "POST",

@@ -12,10 +12,22 @@ import {
 const visualPassEnabled = process.env.PLAYWRIGHT_ENABLE_VISUAL_PASS === "1";
 const roleFilter = (process.env.PLAYWRIGHT_VISUAL_PASS_ROLE ?? "").trim().toLowerCase();
 const mobilePassEnabled = process.env.PLAYWRIGHT_VISUAL_PASS_MOBILE === "1";
+const requestedViewportWidth = Number(process.env.PLAYWRIGHT_VISUAL_PASS_WIDTH ?? "");
+const outputSuffix = (process.env.PLAYWRIGHT_VISUAL_PASS_SUFFIX ?? "").trim();
+const forcedViewportWidth =
+  Number.isFinite(requestedViewportWidth) && requestedViewportWidth >= 320
+    ? requestedViewportWidth
+    : undefined;
 const outputRoot = path.resolve(
   process.cwd(),
   "artifacts",
-  mobilePassEnabled ? "visual-pass-mobile" : "visual-pass",
+  outputSuffix
+    ? `visual-pass-${outputSuffix}`
+    : forcedViewportWidth
+    ? `visual-pass-${forcedViewportWidth}`
+    : mobilePassEnabled
+      ? "visual-pass-mobile"
+      : "visual-pass",
 );
 
 function escapeRegExp(value: string) {
@@ -46,6 +58,7 @@ async function waitForVisualReady(page: Page, entry: VisualPassEntry) {
     .join("|");
   await expect(page).toHaveURL(new RegExp(`^.*(?:${acceptedPattern})(?:\\?.*)?$`));
   await page.waitForLoadState("domcontentloaded");
+  await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => undefined);
   if (entry.readyHeading) {
     const heading = page.getByRole("heading", { name: entry.readyHeading }).first();
     if (await heading.isVisible({ timeout: 5000 }).catch(() => false)) {
@@ -61,7 +74,9 @@ async function waitForVisualReady(page: Page, entry: VisualPassEntry) {
 }
 
 async function captureScreen(page: Page, entry: VisualPassEntry, useProjectMobileViewport: boolean) {
-  if (mobilePassEnabled && !useProjectMobileViewport) {
+  if (forcedViewportWidth) {
+    await page.setViewportSize({ width: forcedViewportWidth, height: 844 });
+  } else if (mobilePassEnabled && !useProjectMobileViewport) {
     await page.setViewportSize({ width: 390, height: 844 });
   }
   if (entry.role !== "anonymous") {

@@ -16,6 +16,10 @@ export const visualPassManifest: VisualPassEntry[] = [
   { id: "login", role: "anonymous", path: "/login", readyHeading: /sign-in|welcome back/i },
   { id: "signup", role: "anonymous", path: "/signup", readyHeading: /sign up|create account/i },
   { id: "register", role: "anonymous", path: "/register", acceptedPaths: ["/register", "/signup"], readyHeading: /register|sign up|create account/i },
+  { id: "forgot-password", role: "anonymous", path: "/forgot-password", readyHeading: /forgot|reset/i },
+  { id: "privacy", role: "anonymous", path: "/privacy", readyHeading: /privacy/i },
+  { id: "support", role: "anonymous", path: "/support", readyHeading: /support/i },
+  { id: "terms", role: "anonymous", path: "/terms", readyHeading: /terms/i },
 
   { id: "admin-dashboard", role: "admin", path: "/admin", readyHeading: /dashboard/i },
   { id: "admin-exams", role: "admin", path: "/admin/exams", readyHeading: /exams/i },
@@ -64,4 +68,11 @@ export const visualPassManifest: VisualPassEntry[] = [
   { id: "student-subscriptions", role: "student", path: "/app/subscriptions", readyHeading: /subscriptions/i },
   { id: "student-search", role: "student", path: "/app/search", readyHeading: /search/i },
   { id: "student-weak-areas", role: "student", path: "/app/weak-areas", readyHeading: /weak areas/i },
+
+  { id: "parent-dashboard", role: "parent", path: "/parent/dashboard", readyHeading: /dashboard/i },
+  { id: "parent-children", role: "parent", path: "/parent/children", readyHeading: /children/i },
+  { id: "parent-progress", role: "parent", path: "/parent/progress", readyHeading: /progress/i },
+  { id: "parent-alerts", role: "parent", path: "/parent/alerts", readyHeading: /alerts/i },
+  { id: "parent-settings", role: "parent", path: "/parent/settings", readyHeading: /settings/i },
+  { id: "parent-search", role: "parent", path: "/parent/search", readyHeading: /search/i },
 ];

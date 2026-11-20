@@ -152,6 +152,8 @@ export default async function TeacherExamsPage({
   const totalExams = examsPage?.count ?? 0;
   const examTotalPages = Math.max(Math.ceil(totalExams / examPageSize), 1);
   const safeExamPage = Math.min(examPage, examTotalPages);
+  const hasActiveExamView =
+    statusFilter !== "all" || sortOption !== "recommended" || groupOption !== "none";
 
   return (
     <div className="studentPage studentDashboardModern teacherConsolePage teacherExamsPageVivid">
@@ -210,7 +212,7 @@ export default async function TeacherExamsPage({
           ctaLabel="Back to Dashboard"
           statusLabel={source === "unconfigured" ? "Sign in to continue" : "Try again soon"}
         />
-      ) : totalExams === 0 ? (
+      ) : totalExams === 0 && !hasActiveExamView ? (
         <StudentStatePanel
           eyebrow="No exams in scope"
           title="Your teacher exam list is empty right now"

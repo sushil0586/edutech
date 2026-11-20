@@ -3,8 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { OperatorWorkspaceLink as Link } from "@/components/ui/operator-workspace-link";
-import { logoutAction } from "@/lib/auth/actions";
-import { LogoutButton } from "@/components/ui/logout-button";
+import { LogoutForm } from "@/components/ui/logout-form";
 import { AccountProfile } from "@/lib/auth/session";
 
 const navItems = [
@@ -30,7 +29,7 @@ export function TeacherSidebar({ profile }: { profile: AccountProfile }) {
 
   return (
     <>
-      <div className="mobileWorkspaceNav">
+      <header className="mobileWorkspaceNav">
         <div className="mobileWorkspaceNavBar">
           <Link className="brand" href="/teacher/dashboard">
             <span className="brandMark">N</span>
@@ -76,13 +75,11 @@ export function TeacherSidebar({ profile }: { profile: AccountProfile }) {
                 <strong>{profile.username}</strong>
                 <span>{profile.role.replaceAll("_", " ")}</span>
               </div>
-              <form action={logoutAction}>
-                <LogoutButton />
-              </form>
+              <LogoutForm />
             </div>
           </div>
         ) : null}
-      </div>
+      </header>
 
       <aside className="appSidebar appSidebarDesktop">
         <Link className="brand" href="/teacher/dashboard">
@@ -115,9 +112,7 @@ export function TeacherSidebar({ profile }: { profile: AccountProfile }) {
             <strong>{profile.username}</strong>
             <span>{profile.role.replaceAll("_", " ")}</span>
           </div>
-          <form action={logoutAction}>
-            <LogoutButton />
-          </form>
+          <LogoutForm />
         </div>
       </aside>
     </>

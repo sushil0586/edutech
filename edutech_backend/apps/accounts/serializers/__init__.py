@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+from datetime import datetime, timezone as datetime_timezone
 
 from django.conf import settings
 from django.core.cache import cache
@@ -7,6 +8,7 @@ from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.utils import timezone
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -16,7 +18,7 @@ from rest_framework.exceptions import AuthenticationFailed
 
 from apps.academics.models import Subject
 from apps.accounts.access import ensure_account_access
-from apps.accounts.models import AccountProfile, SupportRequest
+from apps.accounts.models import AccountProfile, AccountSession, SupportRequest
 from apps.accounts.services import (
     complete_public_onboarding,
     create_public_registration_account,
@@ -28,6 +30,17 @@ from apps.geography.services import resolve_location_selection
 
 
 User = get_user_model()
+
+
+def issue_session_tokens(user):
+    AccountSession.objects.filter(user=user, expires_at__lte=timezone.now()).delete()
+    refresh = RefreshToken.for_user(user)
+    session = AccountSession.objects.create(
+        user=user,
+        expires_at=datetime.fromtimestamp(refresh["exp"], tz=datetime_timezone.utc),
+    )
+    refresh["sid"] = str(session.id)
+    return refresh
 
 
 class PasswordResetRequestSerializer(serializers.Serializer):
@@ -398,7 +411,7 @@ class LoginSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         user = validated_data["user"]
-        refresh = RefreshToken.for_user(user)
+        refresh = issue_session_tokens(user)
         profile = validated_data["account_profile"]
         return {
             "refresh": str(refresh),
@@ -414,12 +427,49 @@ class RefreshTokenSerializer(TokenRefreshSerializer):
         payload = super().validate(attrs)
         token = self.token_class(attrs["refresh"])
         user = User.objects.filter(pk=token["user_id"]).first()
+        session_id = token.get("sid")
+        if not session_id or not AccountSession.objects.filter(
+            id=session_id,
+            user=user,
+            is_active=True,
+            revoked_at__isnull=True,
+            expires_at__gt=timezone.now(),
+        ).exists():
+            raise AuthenticationFailed("Session is no longer active.", code="session_revoked")
         ensure_account_access(user)
         if jwt_settings.CHECK_REVOKE_TOKEN and not hmac.compare_digest(
             str(token.get(jwt_settings.REVOKE_TOKEN_CLAIM, "")), get_md5_hash_password(user.password)
         ):
             raise AuthenticationFailed("Credentials changed. Please sign in again.", code="password_changed")
         return payload
+
+
+class LogoutSerializer(serializers.Serializer):
+    refresh = serializers.CharField()
+
+    def save(self, **kwargs):
+        try:
+            token = RefreshToken(self.validated_data["refresh"])
+        except Exception as exc:
+            raise serializers.ValidationError({"refresh": "Invalid or expired refresh token."}) from exc
+
+        session_id = token.get("sid")
+        user_id = token.get("user_id")
+        if not session_id or not user_id:
+            raise serializers.ValidationError({"refresh": "Invalid session token."})
+
+        session = AccountSession.objects.filter(
+            id=session_id,
+            user_id=user_id,
+            is_active=True,
+        ).first()
+        if session is not None and AccountSession.objects.filter(
+            id=session.id,
+            revoked_at__isnull=True,
+        ).update(revoked_at=timezone.now(), updated_at=timezone.now()):
+            session.refresh_from_db(fields=["revoked_at", "updated_at"])
+            return session
+        return None
 
 
 class CredentialStatusMixin(serializers.Serializer):

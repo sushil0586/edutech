@@ -269,13 +269,13 @@ test.describe("Student mutable exam detail blocked-state flow", () => {
 
       await page.goto(`/teacher/exams/${examId}`);
       await expect(page.getByRole("heading", { name: new RegExp(examTitle, "i") }).first()).toBeVisible();
-      const syncMarksButton = page.getByRole("button", { name: /sync marks/i });
+      const syncMarksButton = page.getByRole("button", { name: /^sync scores$/i });
       if (await syncMarksButton.count()) {
         await syncMarksButton.click();
         await expect(page).toHaveURL(/message=/);
       }
 
-      const publishButton = page.getByRole("button", { name: /publish exam/i });
+      const publishButton = page.getByRole("button", { name: /make exam available|publish exam/i });
       if (await publishButton.count()) {
         await publishButton.click();
         await expect(page).toHaveURL(/message=/);
@@ -391,13 +391,13 @@ test.describe("Student mutable exam detail blocked-state flow", () => {
 
       await page.goto(`/teacher/exams/${examId}`);
       await expect(page.getByRole("heading", { name: new RegExp(examTitle, "i") }).first()).toBeVisible();
-      const syncMarksButton = page.getByRole("button", { name: /sync marks/i });
+      const syncMarksButton = page.getByRole("button", { name: /^sync scores$/i });
       if (await syncMarksButton.count()) {
         await syncMarksButton.click();
         await expect(page).toHaveURL(/message=/);
       }
 
-      const publishButton = page.getByRole("button", { name: /publish exam/i });
+      const publishButton = page.getByRole("button", { name: /make exam available|publish exam/i });
       if (await publishButton.count()) {
         await publishButton.click();
         await expect(page).toHaveURL(/message=/);
@@ -416,8 +416,8 @@ test.describe("Student mutable exam detail blocked-state flow", () => {
       await expect(page.getByRole("heading", { name: new RegExp(examTitle, "i") }).first()).toBeVisible();
       await expect(page.getByText(/exam readiness/i).first()).toBeVisible();
       await expect(page.getByText(/this practice set is not startable right now/i).first()).toBeVisible();
-      await expect(page.getByText(/attempt can only start for scheduled or live exams/i).first()).toBeVisible();
-      await expect(page.getByText(/policy code: exam not startable/i).first()).toBeVisible();
+      await expect(page.getByText(/exam is no longer available for attempts/i).first()).toBeVisible();
+      await expect(page.getByText(/policy code: after window/i).first()).toBeVisible();
       await expect(page.getByText(/attempts left/i).first()).toBeVisible();
       await expect(page.getByRole("button", { name: /not available yet/i })).toBeDisabled();
       await expect(page.getByRole("button", { name: /start/i })).toHaveCount(0);
@@ -533,13 +533,13 @@ test.describe("Student mutable exam detail blocked-state flow", () => {
       await page.getByRole("textbox", { name: /entitlement code/i }).fill("");
       await page.getByRole("button", { name: /save access policy/i }).click();
       await expect(page.getByText(/exam access policy updated successfully/i)).toBeVisible();
-      const syncMarksButton = page.getByRole("button", { name: /sync marks/i });
+      const syncMarksButton = page.getByRole("button", { name: /^sync scores$/i });
       if (await syncMarksButton.count()) {
         await syncMarksButton.click();
         await expect(page).toHaveURL(/message=/);
       }
 
-      const publishButton = page.getByRole("button", { name: /publish exam/i });
+      const publishButton = page.getByRole("button", { name: /make exam available|publish exam/i });
       if (await publishButton.count()) {
         await publishButton.click();
         await expect(page).toHaveURL(/message=/);
@@ -560,8 +560,9 @@ test.describe("Student mutable exam detail blocked-state flow", () => {
       await expect(page.getByText(/this practice set window has closed|not available yet/i).first()).toBeVisible();
       await expect(page.getByText(/star access/i).first()).toBeVisible();
       await expect(page.getByText(/unlocked|stars only/i).first()).toBeVisible();
-      await expect(page.getByText(/attempt can only start for scheduled or live exams/i).first()).toBeVisible();
-      await expect(page.getByText(/policy code: exam not startable/i).first()).toBeVisible();
+      await expect(page.getByText(/7 stars are required before this practice set can be started/i).first()).toBeVisible();
+      await expect(page.getByRole("button", { name: /unlock with 7 stars/i })).toBeVisible();
+      await expect(page.getByRole("link", { name: /open wallet/i })).toBeVisible();
       await expect(page.getByRole("button", { name: /start/i })).toHaveCount(0);
       await expect(page.getByRole("link", { name: /resume/i })).toHaveCount(0);
       await expect(page.getByRole("link", { name: /open summary/i })).toHaveCount(0);

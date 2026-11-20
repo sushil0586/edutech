@@ -108,7 +108,7 @@
     "test:load:dev:smoke-ramp": "K6_STAGES_JSON='[{\"duration\":\"30s\",\"target\":10},{\"duration\":\"60s\",\"target\":10},{\"duration\":\"30s\",\"target\":20},{\"duration\":\"60s\",\"target\":20},{\"duration\":\"30s\",\"target\":50},{\"duration\":\"60s\",\"target\":50},{\"duration\":\"30s\",\"target\":0}]' k6 run ../performance/k6/student-session-and-exam-discovery.js"
   },
   "dependencies": {
-    "next": "16.2.7",
+    "next": "16.4.6",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
@@ -117,8 +117,9 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "baseline-browser-mapping": "2.11.1",
     "eslint": "^9",
-    "eslint-config-next": "16.2.7",
+    "eslint-config-next": "16.4.6",
     "typescript": "^5"
   }
 }

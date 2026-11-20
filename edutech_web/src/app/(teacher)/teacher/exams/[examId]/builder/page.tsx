@@ -678,11 +678,6 @@ async function loadBuilderData(
     fetchTeacherExamSlotAuditLogs(examId).catch(() => ({ data: [] })),
     fetchTeacherResultSummary().catch(() => [] as TeacherResultSummary[]),
   ]);
-  const activeExamQuestionsCount = detail.exam_questions.filter((question) => question.is_active).length;
-  const needsQuestionBank =
-    requestedTabId === "questions" ||
-    requestedTabId === "bank" ||
-    (requestedTabId === null && activeExamQuestionsCount === 0);
   const needsStudents = requestedTabId === "assignment";
 
   const [
@@ -708,14 +703,12 @@ async function loadBuilderData(
           program: detail.program,
         })
       : Promise.resolve([]),
-    needsQuestionBank
-      ? fetchTeacherQuestionPage({
-          page: 1,
-          page_size: 200,
-          subject: detail.subject || undefined,
-          program: detail.program || undefined,
-        })
-      : Promise.resolve(null),
+    fetchTeacherQuestionPage({
+      page: 1,
+      page_size: 200,
+      subject: detail.subject || undefined,
+      program: detail.program || undefined,
+    }),
     detail.subject
       ? fetchTeacherTopics({
           subject: detail.subject,

@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { logoutAction } from "@/lib/auth/actions";
-import { LogoutButton } from "@/components/ui/logout-button";
+import { LogoutForm } from "@/components/ui/logout-form";
 import { requireStudentSession } from "@/lib/auth/session";
 import { StudentKpiGrid } from "@/components/ui/student-kpi-grid";
 import { StudentPageHeader } from "@/components/ui/student-page-header";
@@ -318,15 +317,12 @@ export default async function SettingsPage() {
               <p>Log out when you finish on a shared or public device.</p>
             </div>
           </div>
-          <form action={logoutAction}>
-            <div className="settingsActionRow">
-              <LogoutButton
-                className="button buttonPrimary"
-                label="Logout from this device"
-                pendingLabel="Logging out..."
-              />
-            </div>
-          </form>
+          <LogoutForm
+            buttonClassName="button buttonPrimary"
+            formClassName="settingsActionRow logoutForm"
+            label="Logout from this device"
+            pendingLabel="Logging out..."
+          />
         </section>
 
         <section className="contentCard">

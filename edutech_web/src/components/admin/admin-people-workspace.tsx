@@ -78,6 +78,11 @@ type PeopleWorkspacePayload = {
   visibleRows: Array<StudentRosterRow | TeacherRosterRow>;
 };
 
+type AdminPeopleWorkspaceProps = PeopleWorkspacePayload & {
+  hasWorkspaceLoadIssue: boolean;
+  institutes: InstituteRecord[];
+};
+
 function buildWorkspaceHref(view: "students" | "teachers", instituteId: string | null) {
   const params = new URLSearchParams();
   params.set("view", view);
@@ -88,6 +93,19 @@ function buildWorkspaceHref(view: "students" | "teachers", instituteId: string |
 }
 
 export function AdminPeopleWorkspace({
+  ...props
+}: AdminPeopleWorkspaceProps) {
+  const resetKey = [
+    props.activeView,
+    props.selectedInstituteId ?? "all",
+    props.visibleCount,
+    props.visibleRows.map((row) => row.id).join(","),
+  ].join(":");
+
+  return <AdminPeopleWorkspaceState key={resetKey} {...props} />;
+}
+
+function AdminPeopleWorkspaceState({
   academicYears,
   cohorts,
   hasWorkspaceLoadIssue,
@@ -97,17 +115,7 @@ export function AdminPeopleWorkspace({
   visibleCount,
   visibleRows,
   activeView,
-}: {
-  academicYears: AcademicYearRecord[];
-  cohorts: CohortRecord[];
-  hasWorkspaceLoadIssue: boolean;
-  institutes: InstituteRecord[];
-  programs: ProgramRecord[];
-  selectedInstituteId: string | null;
-  visibleCount: number;
-  visibleRows: Array<StudentRosterRow | TeacherRosterRow>;
-  activeView: "students" | "teachers";
-}) {
+}: AdminPeopleWorkspaceProps) {
   const requestIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
   const [currentView, setCurrentView] = useState(activeView);
@@ -126,24 +134,6 @@ export function AdminPeopleWorkspace({
       abortRef.current = null;
     };
   }, []);
-
-  useEffect(() => {
-    setCurrentView(activeView);
-    setCurrentInstituteId(selectedInstituteId);
-    setCurrentAcademicYears(academicYears);
-    setCurrentPrograms(programs);
-    setCurrentCohorts(cohorts);
-    setCurrentVisibleRows(visibleRows);
-    setCurrentVisibleCount(visibleCount);
-  }, [
-    academicYears,
-    activeView,
-    cohorts,
-    programs,
-    selectedInstituteId,
-    visibleCount,
-    visibleRows,
-  ]);
 
   const selectedInstitute =
     (currentInstituteId
@@ -313,7 +303,7 @@ export function AdminPeopleWorkspace({
         </div>
       </section>
 
-      {isLoading ? <p className="feedbackBanner">Loading people workspace...</p> : null}
+      {isLoading ? <p aria-live="polite" className="feedbackBanner" role="status">Loading people workspace...</p> : null}
 
       <section className="adminPeopleSingleGrid">
         <article className="dashboardPanel adminPeopleRosterPanel adminPeopleRosterPanelSingle">

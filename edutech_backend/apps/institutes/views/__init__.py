@@ -1,4 +1,6 @@
+from django.db import transaction
 from django.db.models import Count, Q
+from rest_framework.exceptions import APIException
 from django.db.models import Prefetch
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -24,6 +26,15 @@ from apps.institutes.serializers import (
     InstituteSerializer,
 )
 from common.viewsets import SoftDeleteModelViewSetMixin
+
+
+class StaleInstituteUpdate(APIException):
+    status_code = 409
+    default_detail = {
+        "detail": "This institute changed after you opened it. Refresh and review the latest values before saving again.",
+        "code": "stale_update",
+    }
+    default_code = "stale_update"
 
 
 class InstituteOnboardingProfileListView(APIView):
@@ -91,6 +102,15 @@ class InstituteViewSet(SoftDeleteModelViewSetMixin, ModelViewSet):
     ordering_fields = ["name", "code", "created_at", "updated_at"]
     ordering = ["name"]
     archive_message = "Institute archived successfully."
+
+    @transaction.atomic
+    def perform_update(self, serializer):
+        expected_updated_at = serializer.validated_data.pop("expected_updated_at", None)
+        locked_institute = Institute.objects.select_for_update().get(pk=serializer.instance.pk)
+        if expected_updated_at is not None and locked_institute.updated_at != expected_updated_at:
+            raise StaleInstituteUpdate()
+        serializer.instance = locked_institute
+        serializer.save()
 
     institute_admin_prefetch = Prefetch(
         "account_profiles",

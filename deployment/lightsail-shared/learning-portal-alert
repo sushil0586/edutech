@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+set -euo pipefail
+umask 077
+
+alert_root="/srv/saas/projects/learning-portal/alerts"
+unit="${1:-unknown}"
+stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+install -d -o root -g root -m 0700 "$alert_root"
+printf 'timestamp=%s\nunit=%s\nhost=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$unit" "$(hostname)" >"$alert_root/${stamp}-${unit//[^A-Za-z0-9_.-]/_}.alert"
+chmod 0600 "$alert_root/${stamp}-${unit//[^A-Za-z0-9_.-]/_}.alert"
+logger -p daemon.alert -t learning-portal-alert "unit=${unit} requires administrator attention"
+
+export LEARNING_PORTAL_ALERT_UNIT="$unit"
+python3 - <<'PY'
+import os
+import socket
+
+import boto3
+
+
+unit = os.environ["LEARNING_PORTAL_ALERT_UNIT"]
+topic_arn = os.environ["SNS_TOPIC_ARN"]
+timestamp = os.environ.get("LEARNING_PORTAL_ALERT_TIMESTAMP")
+if not timestamp:
+    from datetime import datetime, timezone
+
+    timestamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+boto3.client("sns").publish(
+    TopicArn=topic_arn,
+    Subject="Learning portal operational alert",
+    Message=(
+        "The learning portal requires administrator attention.\n"
+        f"Timestamp: {timestamp}\n"
+        f"Host: {socket.gethostname()}\n"
+        f"Unit: {unit}\n"
+    ),
+)
+PY

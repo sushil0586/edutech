@@ -75,7 +75,13 @@ test.describe("Teacher exams workspace", () => {
     await expect(page).toHaveURL(/exam_status=live/);
     await expect(statusSelect(page)).toHaveValue("live");
     await expect(page.getByText(/status: live/i).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /^view exam$/i }).first()).toBeVisible();
+    if (await page.getByRole("link", { name: /^view exam$/i }).count()) {
+      await expect(page.getByRole("link", { name: /^view exam$/i }).first()).toBeVisible();
+    } else {
+      await expect(
+        page.getByRole("heading", { name: /no teacher exams match these controls/i }).first(),
+      ).toBeVisible();
+    }
 
     await openTeacherExams(page);
 

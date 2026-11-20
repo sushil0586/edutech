@@ -5,9 +5,15 @@ import {
   expectStudentWorkspace,
   expectTeacherWorkspace,
 } from "../helpers/navigation";
+import { gotoWithRuntimeRecovery } from "../helpers/runtime";
 
 async function expectFocused(locator: Locator) {
   await expect(locator).toBeFocused();
+}
+
+async function pressNextTabStop(page: Page) {
+  const browserName = page.context().browser()?.browserType().name();
+  await page.keyboard.press(browserName === "webkit" ? "Alt+Tab" : "Tab");
 }
 
 async function tabTo(page: Page, locator: Locator, maxTabs = 40) {
@@ -15,7 +21,7 @@ async function tabTo(page: Page, locator: Locator, maxTabs = 40) {
     if (await locator.evaluate((node) => node === document.activeElement).catch(() => false)) {
       return;
     }
-    await page.keyboard.press("Tab");
+    await pressNextTabStop(page);
   }
 
   throw new Error("Could not reach expected focus target with keyboard Tab navigation.");
@@ -102,7 +108,7 @@ test.describe("Accessibility keyboard workflows", () => {
     await expect(page.getByRole("button", { name: /pause auto refresh|resume auto refresh/i }).first()).toBeVisible();
 
     const refreshNowButton = page.getByRole("button", { name: /refresh now/i }).first();
-    await page.keyboard.press("Tab");
+    await pressNextTabStop(page);
     await expectFocused(refreshNowButton);
     await refreshNowButton.press("Enter");
     await expect(page.getByText(/last refreshed at|waiting for first refresh cycle/i).first()).toBeVisible();
@@ -126,7 +132,7 @@ test.describe("Accessibility keyboard workflows", () => {
     await refreshNowButton.press("Enter");
     await expect(page.getByText(/last refreshed at|waiting for first refresh cycle/i).first()).toBeVisible();
 
-    await page.goto("/teacher/question-bank");
+    await gotoWithRuntimeRecovery(page, "/teacher/question-bank");
     await expect(page.getByRole("heading", { name: /question bank/i }).first()).toBeVisible();
 
     const questionDetailHref = await page.locator("a").evaluateAll((anchors) => {
@@ -178,7 +184,7 @@ test.describe("Accessibility keyboard workflows", () => {
     await expect(page).toHaveURL(/\/institute\/exams\/[^/]+(?:\?.*)?$/);
 
     const skipLink = page.getByRole("link", { name: /skip to main content/i }).first();
-    await page.keyboard.press("Tab");
+    await pressNextTabStop(page);
     await expectFocused(skipLink);
     await skipLink.press("Enter");
     await expect(page.locator("main#app-main-content")).toBeFocused();

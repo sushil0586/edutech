@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
-import { logoutAction } from "@/lib/auth/actions";
-import { LogoutButton } from "@/components/ui/logout-button";
+import { useState, type ReactNode } from "react";
+import { LogoutForm } from "@/components/ui/logout-form";
 import type { AccountProfile } from "@/lib/auth/session";
 
 export type WorkspaceNavItem = {
@@ -29,11 +28,8 @@ export function WorkspaceSidebar({
   homeHref?: string;
 }) {
   const pathname = usePathname();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-  useEffect(() => {
-    setIsMobileMenuOpen(false);
-  }, [pathname]);
+  const [mobileMenuPathname, setMobileMenuPathname] = useState<string | null>(null);
+  const isMobileMenuOpen = mobileMenuPathname === pathname;
 
   function isActive(href: string) {
     if (href.endsWith("/dashboard")) {
@@ -45,7 +41,7 @@ export function WorkspaceSidebar({
 
   return (
     <>
-      <div className="mobileWorkspaceNav">
+      <header className="mobileWorkspaceNav">
         <div className="mobileWorkspaceNavBar">
           <Link className="brand" href={homeHref}>
             <span className="brandMark">N</span>
@@ -58,7 +54,9 @@ export function WorkspaceSidebar({
             aria-controls="mobile-workspace-menu"
             aria-expanded={isMobileMenuOpen}
             className="mobileWorkspaceNavToggle"
-            onClick={() => setIsMobileMenuOpen((value) => !value)}
+            onClick={() =>
+              setMobileMenuPathname((value) => (value === pathname ? null : pathname))
+            }
             type="button"
           >
             <span aria-hidden="true">{isMobileMenuOpen ? "×" : "☰"}</span>
@@ -90,13 +88,11 @@ export function WorkspaceSidebar({
                 <strong>{profile.username}</strong>
                 <span>{profile.role.replaceAll("_", " ")}</span>
               </div>
-              <form action={logoutAction}>
-                <LogoutButton />
-              </form>
+              <LogoutForm />
             </div>
           </div>
         ) : null}
-      </div>
+      </header>
 
       <aside className="appSidebar appSidebarDesktop">
         <Link className="brand" href={homeHref}>
@@ -129,9 +125,7 @@ export function WorkspaceSidebar({
             <strong>{profile.username}</strong>
             <span>{profile.role.replaceAll("_", " ")}</span>
           </div>
-          <form action={logoutAction}>
-            <LogoutButton />
-          </form>
+          <LogoutForm />
         </div>
       </aside>
     </>

@@ -1,0 +1,134 @@
+name: learning-portal
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+x-runtime-security: &runtime-security
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  init: true
+  restart: unless-stopped
+  stop_grace_period: 30s
+  logging: *default-logging
+
+services:
+  api-gateway:
+    <<: *runtime-security
+    image: caddy@sha256:78bd35025c7ba85961dd149ae670315129954e77abe2383ac47c89106b35ade9
+    container_name: learning-portal-api-gateway-1
+    command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
+    user: "10001:10001"
+    read_only: true
+    volumes:
+      - ${RELEASE_DIR:?Set RELEASE_DIR}/deployment/lightsail-shared/gateway.Caddyfile:/etc/caddy/Caddyfile:ro
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+      - /config:size=8m,mode=0700,uid=10001,gid=10001
+      - /data:size=8m,mode=0700,uid=10001,gid=10001
+    networks:
+      - private
+      - edge
+    mem_reservation: 32m
+    mem_limit: 128m
+    cpus: 0.25
+    pids_limit: 64
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+      interval: 15s
+      timeout: 3s
+      start_period: 5s
+      retries: 3
+
+  backend:
+    <<: *runtime-security
+    image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE to an immutable image reference}
+    container_name: learning-portal-backend-1
+    env_file:
+      - ${SECRETS_DIR:?Set SECRETS_DIR}/backend.env
+      - ${RELEASE_DIR:?Set RELEASE_DIR}/release.env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
+      DB_HOST: saas-platform-postgres-1
+      DB_PORT: "5432"
+    volumes:
+      - ${DATA_DIR:?Set DATA_DIR}/media:/app/media
+      - ${DATA_DIR:?Set DATA_DIR}/static:/app/staticfiles
+    networks:
+      - private
+    mem_reservation: 384m
+    mem_limit: 1536m
+    cpus: 1.50
+    pids_limit: 256
+
+  web:
+    <<: *runtime-security
+    image: ${WEB_IMAGE:?Set WEB_IMAGE to an immutable image reference}
+    container_name: learning-portal-web-1
+    env_file:
+      - ${SECRETS_DIR:?Set SECRETS_DIR}/web.env
+      - ${RELEASE_DIR:?Set RELEASE_DIR}/release.env
+    environment:
+      HOSTNAME: 0.0.0.0
+      PORT: "3000"
+    networks:
+      - private
+      - edge
+    mem_reservation: 256m
+    mem_limit: 1024m
+    cpus: 1.00
+    pids_limit: 256
+
+  migrate:
+    image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE to an immutable image reference}
+    profiles: ["tools"]
+    env_file:
+      - ${SECRETS_DIR:?Set SECRETS_DIR}/backend.env
+      - ${RELEASE_DIR:?Set RELEASE_DIR}/release.env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
+      DB_HOST: saas-platform-postgres-1
+      DB_PORT: "5432"
+    command: ["python", "manage.py", "migrate", "--noinput"]
+    networks:
+      - private
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: "no"
+    pids_limit: 128
+
+  collectstatic:
+    image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE to an immutable image reference}
+    profiles: ["tools"]
+    env_file:
+      - ${SECRETS_DIR:?Set SECRETS_DIR}/backend.env
+      - ${RELEASE_DIR:?Set RELEASE_DIR}/release.env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
+      DB_HOST: saas-platform-postgres-1
+      DB_PORT: "5432"
+    command: ["python", "manage.py", "collectstatic", "--noinput"]
+    volumes:
+      - ${DATA_DIR:?Set DATA_DIR}/static:/app/staticfiles
+    networks:
+      - private
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: "no"
+    pids_limit: 128
+
+networks:
+  private:
+    name: learning-portal-private
+    external: true
+  edge:
+    name: saas-edge
+    external: true

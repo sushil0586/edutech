@@ -307,7 +307,27 @@ export function RosterBrowser({
         <span>{rows.length} total</span>
       </div>
 
-      <div className="adminPeopleRosterTableWrap">
+      <div
+        aria-label={`${resource === "students" ? "Student" : "Teacher"} roster table. Scroll horizontally to review every column.`}
+        className="adminPeopleRosterTableWrap"
+        onKeyDown={(event) => {
+          if (event.key === "ArrowRight") {
+            event.preventDefault();
+            event.currentTarget.scrollBy({ left: 80 });
+          } else if (event.key === "ArrowLeft") {
+            event.preventDefault();
+            event.currentTarget.scrollBy({ left: -80 });
+          } else if (event.key === "Home") {
+            event.preventDefault();
+            event.currentTarget.scrollTo({ left: 0 });
+          } else if (event.key === "End") {
+            event.preventDefault();
+            event.currentTarget.scrollTo({ left: event.currentTarget.scrollWidth });
+          }
+        }}
+        role="region"
+        tabIndex={0}
+      >
         {filteredRows.length > 0 ? (
           <table className="adminPeopleRosterTable">
             <thead>

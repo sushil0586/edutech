@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect, unstable_rethrow } from "next/navigation";
-import type { StudentAvailableExam } from "@/features/dashboard/types";
+import type { StudentExamCatalog } from "@/features/dashboard/types";
 import { fetchCurrentAccountProfile } from "@/lib/auth/session";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import { FilterSummaryPills } from "@/components/ui/filter-summary-pills";
@@ -134,7 +134,7 @@ function resolveSelectedSource(value?: string): SourceFilterValue {
   }
 }
 
-function examSourceDescriptor(exam: StudentAvailableExam) {
+function examSourceDescriptor(exam: StudentExamCatalog) {
   if (exam.source_type === "teacher" && exam.source_teacher_name) {
     return `${exam.source_label} · ${exam.source_teacher_name}`;
   }
@@ -214,7 +214,7 @@ function examAvailabilityGuidance(exam: {
   return "Open the detail page to review availability and the next action you can take.";
 }
 
-function subscriptionAllowanceBadge(exam: StudentAvailableExam) {
+function subscriptionAllowanceBadge(exam: StudentExamCatalog) {
   const summary = exam.economy_access.subscription_resolution;
   if (!summary?.is_applicable) {
     return null;
@@ -282,7 +282,7 @@ function resolveExamGroupOption(value?: string): ExamGroupOption {
   }
 }
 
-function applyExamAvailabilityFilter(exams: StudentAvailableExam[], filter: ExamAvailabilityFilter) {
+function applyExamAvailabilityFilter(exams: StudentExamCatalog[], filter: ExamAvailabilityFilter) {
   switch (filter) {
     case "ready":
       return exams.filter((exam) => exam.can_start);
@@ -299,9 +299,9 @@ function applyExamAvailabilityFilter(exams: StudentAvailableExam[], filter: Exam
   }
 }
 
-function sortExams(exams: StudentAvailableExam[], sortBy: ExamSortOption) {
+function sortExams(exams: StudentExamCatalog[], sortBy: ExamSortOption) {
   const sortable = [...exams];
-  const recommendedRank = (exam: StudentAvailableExam) => {
+  const recommendedRank = (exam: StudentExamCatalog) => {
     if (exam.can_resume) return 0;
     if (exam.can_start) return 1;
     if (exam.availability_state === "upcoming") return 2;
@@ -334,7 +334,7 @@ function sortExams(exams: StudentAvailableExam[], sortBy: ExamSortOption) {
   return sortable;
 }
 
-function buildExamGroupLabel(exam: StudentAvailableExam, groupBy: ExamGroupOption) {
+function buildExamGroupLabel(exam: StudentExamCatalog, groupBy: ExamGroupOption) {
   if (groupBy === "availability") {
     return formatExamState(exam.availability_state);
   }
@@ -347,12 +347,12 @@ function buildExamGroupLabel(exam: StudentAvailableExam, groupBy: ExamGroupOptio
   return "Mock tests";
 }
 
-function groupExams(exams: StudentAvailableExam[], groupBy: ExamGroupOption) {
+function groupExams(exams: StudentExamCatalog[], groupBy: ExamGroupOption) {
   if (groupBy === "none") {
     return [{ label: "All mock tests", items: exams }];
   }
 
-  const buckets = new Map<string, StudentAvailableExam[]>();
+  const buckets = new Map<string, StudentExamCatalog[]>();
   for (const exam of exams) {
     const label = buildExamGroupLabel(exam, groupBy);
     buckets.set(label, [...(buckets.get(label) ?? []), exam]);
@@ -428,8 +428,8 @@ async function loadExams(filters: {
   if (!state.apiConfigured) {
     return {
       source: "unconfigured" as const,
-      exams: [] as StudentAvailableExam[],
-      catalogExams: [] as StudentAvailableExam[],
+      exams: [] as StudentExamCatalog[],
+      catalogExams: [] as StudentExamCatalog[],
       attempts: [],
       wallet: null,
     };
@@ -461,8 +461,8 @@ async function loadExams(filters: {
   } catch {
     return {
       source: "error" as const,
-      exams: [] as StudentAvailableExam[],
-      catalogExams: [] as StudentAvailableExam[],
+      exams: [] as StudentExamCatalog[],
+      catalogExams: [] as StudentExamCatalog[],
       attempts: [],
       wallet: null,
     };

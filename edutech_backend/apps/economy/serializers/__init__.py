@@ -184,6 +184,10 @@ class EconomyOperatorPolicyConfigSerializer(serializers.ModelSerializer):
             "institute_admin_confirm_order_currency",
             "institute_admin_can_grant_stars",
             "institute_admin_max_grant_stars",
+            "platform_catalog_governance_scope",
+            "institute_catalog_governance_scope",
+            "platform_support_scope",
+            "institute_support_scope",
             "latest_audit",
             "created_at",
             "updated_at",
@@ -223,6 +227,16 @@ class EconomyOperatorPolicyConfigSerializer(serializers.ModelSerializer):
             "created_at": audit.created_at,
             "metadata": audit.metadata,
         }
+
+    def validate_institute_admin_max_confirm_order_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("Maximum confirm amount must be greater than zero.")
+        return value
+
+    def validate_institute_admin_max_grant_stars(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("Maximum grant stars must be greater than zero.")
+        return value
 
 
 class EconomyPolicyAuditLogSerializer(serializers.ModelSerializer):

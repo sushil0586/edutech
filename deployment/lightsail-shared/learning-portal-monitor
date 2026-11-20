@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -euo pipefail
+umask 077
+
+health_url="${LEARNING_HEALTH_URL:-https://learn.accerio.in/login}"
+backup_root="/srv/saas/backups/learning-portal"
+max_backup_age_seconds="${MAX_BACKUP_AGE_SECONDS:-129600}"
+min_certificate_days="${MIN_CERTIFICATE_DAYS:-21}"
+max_disk_percent="${MAX_DISK_PERCENT:-80}"
+min_available_memory_mb="${MIN_AVAILABLE_MEMORY_MB:-1024}"
+
+failures=()
+for container in learning-portal-backend-1 learning-portal-web-1 learning-portal-api-gateway-1; do
+  state="$(docker inspect --format '{{.State.Status}}:{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container" 2>/dev/null || true)"
+  [ "$state" = "running:healthy" ] || failures+=("container:${container}:${state:-missing}")
+done
+
+curl -fsS --max-time 10 -o /dev/null "$health_url" || failures+=("public-health:${health_url}")
+
+latest="$(find "$backup_root" -mindepth 1 -maxdepth 1 -type d -name '20??????T??????Z' -printf '%T@ %p\n' | sort -n | tail -1 | cut -d' ' -f2-)"
+if [ -z "$latest" ]; then
+  failures+=("backup:missing")
+else
+  backup_age=$(($(date +%s)-$(stat -c %Y "$latest")))
+  [ "$backup_age" -le "$max_backup_age_seconds" ] || failures+=("backup:stale:${backup_age}s")
+fi
+
+certificate_end="$(date -d "+${min_certificate_days} days" +%s)"
+echo | openssl s_client -connect learn.accerio.in:443 -servername learn.accerio.in 2>/dev/null |
+  openssl x509 -noout -checkend "$((certificate_end-$(date +%s)))" >/dev/null || failures+=("certificate:expires-within-${min_certificate_days}d")
+
+disk_percent="$(df --output=pcent / | tail -1 | tr -dc '0-9')"
+[ "$disk_percent" -lt "$max_disk_percent" ] || failures+=("disk:${disk_percent}%")
+available_memory_mb="$(awk '/MemAvailable:/ {print int($2/1024)}' /proc/meminfo)"
+[ "$available_memory_mb" -ge "$min_available_memory_mb" ] || failures+=("memory:${available_memory_mb}MB")
+
+if [ "${#failures[@]}" -gt 0 ]; then
+  printf 'learning-portal monitor failed: %s\n' "$(IFS=,; echo "${failures[*]}")" >&2
+  exit 1
+fi
+
+printf 'monitor=PASS disk=%s%% available_memory_mb=%s backup=%s\n' "$disk_percent" "$available_memory_mb" "$latest"
+

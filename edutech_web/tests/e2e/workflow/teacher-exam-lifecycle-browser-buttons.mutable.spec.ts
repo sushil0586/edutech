@@ -118,7 +118,7 @@ test.describe("Teacher exam lifecycle browser coverage", () => {
       examId = examIdMatch?.[1] ?? null;
       expect(examId).not.toBeNull();
 
-      await page.getByRole("link", { name: /open delivery view/i }).click();
+      await page.goto(`/teacher/exams/${examId}`);
       await expect(page).toHaveURL(new RegExp(`/teacher/exams/${examId}(?:\\?.*)?$`));
       const examDetailBaseUrl = page.url().split("?")[0] ?? page.url();
       await expect(
@@ -305,11 +305,11 @@ test.describe("Teacher exam lifecycle browser coverage", () => {
       await expectMessageInUrl(page, /policy|access|saved/i);
 
       await page.goto(`/teacher/exams/${examId}`);
-      await page.getByRole("button", { name: /refresh status/i }).click();
+      await page.getByRole("button", { name: /^refresh$/i }).click();
       await expectMessageInUrl(page, /completed successfully|status/i);
 
       await page.goto(`/teacher/exams/${examId}`);
-      await page.getByRole("button", { name: /sync marks/i }).click();
+      await page.getByRole("button", { name: /^sync scores$/i }).click();
       await expectMessageInUrl(page, /marks/i);
 
       await page.goto(`/teacher/exams/${examId}`);

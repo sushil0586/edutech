@@ -7,10 +7,12 @@ import {
 } from "../helpers/onboarding";
 import { isMutableLaneEnabled, mutableLaneMessage } from "../helpers/mutable";
 import { expectAdminWorkspace } from "../helpers/navigation";
+import { resolveBackendBaseUrl } from "../helpers/backend-base-url";
 
 const mutableAdminInstituteManagementModeEnabled = isMutableLaneEnabled(
   "PLAYWRIGHT_ENABLE_MUTABLE_ADMIN_INSTITUTE_ACTIONS",
 );
+const backendBaseUrl = resolveBackendBaseUrl();
 
 type BackendInstituteRecord = {
   id: string;
@@ -20,7 +22,7 @@ type BackendInstituteRecord = {
 };
 
 async function fetchInstituteById(page: Page, accessToken: string, instituteId: string) {
-  const response = await page.request.get(`http://127.0.0.1:9001/api/v1/institutes/${instituteId}/`, {
+  const response = await page.request.get(`${backendBaseUrl}/api/v1/institutes/${instituteId}/`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
@@ -195,7 +197,7 @@ test.describe("Admin institute management mode", () => {
 
     const before = await fetchInstituteById(page, accessToken, instituteId);
 
-    const response = await page.request.patch(`http://127.0.0.1:9001/api/v1/institutes/${instituteId}/`, {
+    const response = await page.request.patch(`${backendBaseUrl}/api/v1/institutes/${instituteId}/`, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",

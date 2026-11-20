@@ -1,6 +1,18 @@
-import type { StudentAvailableExam, StudentPracticeFollowUpExam } from "@/features/dashboard/types";
-
-type PracticeFollowUpExam = StudentAvailableExam | StudentPracticeFollowUpExam;
+type PracticeFollowUpExam = {
+  id: string;
+  subject_name: string | null;
+  active_attempt: { id: string } | null;
+  can_start: boolean;
+  can_resume: boolean;
+  economy_access: {
+    is_locked: boolean;
+    can_unlock_with_stars: boolean;
+    star_cost: number;
+    content_type?: string;
+    content_key?: string;
+    subject_id?: string | null;
+  };
+};
 
 export function buildPracticeHref(args?: {
   subjectName?: string | null;

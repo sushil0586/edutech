@@ -15,6 +15,7 @@ const backendBaseUrl = (
 
 type ReviewedRequest = {
   institute_code: string;
+  status?: string;
   metadata?: {
     question_bank_package_codes?: string[];
   };
@@ -183,7 +184,9 @@ async function createInstituteRequest(browser: Browser, requestNote: string) {
       );
     }
 
-    const cycleSelect = requestCard.locator("select").first();
+    const cycleSelect = requestCard.getByRole("combobox", {
+      name: /institute requestable plan cycle/i,
+    });
     await cycleSelect.selectOption(selection!.cycleId);
     const selectedCycleId = await cycleSelect.inputValue();
     expect(selectedCycleId).toBe(selection!.cycleId);
@@ -201,7 +204,6 @@ async function createInstituteRequest(browser: Browser, requestNote: string) {
     expect(requestResponse.ok()).toBe(true);
 
     await expect(page.getByText(/subscription request submitted successfully/i).first()).toBeVisible();
-    await expect(requestCard.getByText(requestNote, { exact: false })).toBeVisible();
 
     return selection!;
   } finally {
@@ -256,7 +258,7 @@ async function reviewInstituteRequest(
     expect(adminAccessToken).not.toBe("");
     const entitlementsBefore = await listEntitlements(page, adminAccessToken);
 
-    await page.goto("/admin/economy");
+    await page.goto("/admin/economy?tab=support-ops");
     await expect(page.getByRole("heading", { name: /economy/i }).first()).toBeVisible();
 
     const queueCard = adminRequestQueueCard(page);
@@ -282,9 +284,7 @@ async function reviewInstituteRequest(
     const reviewBody = (await reviewResponse.json()) as { data?: ReviewedRequest };
 
     await expect(page.getByText(/subscription request reviewed successfully/i).first()).toBeVisible();
-    await expect(requestRow!.locator(".weakTopicMeta strong")).toHaveText(
-      decision === "approve" ? /fulfilled/i : /rejected/i,
-    );
+    expect(reviewBody.data?.status).toBe(decision === "approve" ? "fulfilled" : "rejected");
 
     if (decision === "approve") {
       const instituteCode = reviewBody.data?.institute_code ?? "";

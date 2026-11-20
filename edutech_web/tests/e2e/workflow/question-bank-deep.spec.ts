@@ -24,33 +24,52 @@ test.describe("Teacher workflow deep regression", () => {
     await page.getByRole("button", { name: /update view/i }).click();
 
     await expect(page).toHaveURL(/search=square\+root|search=square%20root/);
+    await page.waitForLoadState("networkidle");
     await expect(page.getByRole("textbox", { name: /search question text/i })).toHaveValue("square root");
     await expect(page.getByText(/search: active/i)).toBeVisible();
 
+    const emptyState = page
+      .getByText(/no questions match these filters|no shared library questions match this scope/i)
+      .first();
+    await expect
+      .poll(async () =>
+        (await page.locator("details.questionBankDetails").count()) > 0 ||
+        (await emptyState.isVisible().catch(() => false)),
+      )
+      .toBe(true);
+
     const details = page.locator("details.questionBankDetails").first();
-    if (await details.isVisible().catch(() => false)) {
-      const summary = details.locator("summary").first();
-      await expect(summary).toBeVisible();
+    if ((await page.locator("details.questionBankDetails").count()) > 0) {
       await expect(details).not.toHaveAttribute("open", "");
 
-      await summary.click();
-      await expect(details).toHaveAttribute("open", "");
+      await expect(async () => {
+        const currentDetails = page.locator("details.questionBankDetails").first();
+        await expect(currentDetails.locator("summary").first()).toBeVisible();
+        await currentDetails.locator("summary").first().click({ force: true });
+        await expect(currentDetails).toHaveAttribute("open", "");
+      }).toPass({ timeout: 15000 });
+      const openedDetails = page.locator("details.questionBankDetails[open]").first();
       await expect(
-        details.getByText(/explanation|accepted answers|answer options|student response format/i).first(),
+        openedDetails.getByText(/explanation|accepted answers|answer options|student response format/i).first(),
       ).toBeVisible();
 
-      await details.locator("summary").first().click();
-      await expect(details).not.toHaveAttribute("open", "");
+      await openedDetails.locator("summary").first().click({ force: true });
+      await expect(page.locator("details.questionBankDetails").first()).not.toHaveAttribute("open", "");
     } else {
-      await expect(
-        page
-          .getByText(/no questions match these filters|no shared library questions match this scope/i)
-          .first(),
-      ).toBeVisible();
+      await expect(emptyState).toBeVisible();
     }
 
     await page.goto("/teacher/question-bank/import");
     await expect(page.getByRole("heading", { name: /import questions/i }).first()).toBeVisible();
+    const importBlockedMessage = page
+      .getByText(/question-bank bulk import is not enabled for your institute yet/i)
+      .first();
+    await expect
+      .poll(async () =>
+        (await importBlockedMessage.isVisible().catch(() => false)) ||
+        (await page.getByRole("button", { name: /preview import/i }).isVisible().catch(() => false)),
+      )
+      .toBe(true);
     const importBlocked = await page
       .getByText(/question-bank bulk import is not enabled for your institute yet/i)
       .first()
@@ -104,6 +123,15 @@ test.describe("Teacher workflow deep regression", () => {
 
     await page.goto("/teacher/question-bank/comprehension/import");
     await expect(page.getByRole("heading", { name: /import comprehension sets/i }).first()).toBeVisible();
+    const comprehensionBlockedMessage = page
+      .getByText(/question-bank bulk import is not enabled for your institute yet/i)
+      .first();
+    await expect
+      .poll(async () =>
+        (await comprehensionBlockedMessage.isVisible().catch(() => false)) ||
+        (await page.getByRole("button", { name: /preview import/i }).isVisible().catch(() => false)),
+      )
+      .toBe(true);
     const comprehensionImportBlocked = await page
       .getByText(/question-bank bulk import is not enabled for your institute yet/i)
       .first()

@@ -1236,10 +1236,13 @@
 }
 
 .studentDashboardProgressRing small,
-.studentDashboardWeakRow span,
 .dashboardLedgerDelta,
 .dashboardRailStat {
   color: var(--color-text-muted);
+}
+
+.studentDashboardWeakRow span {
+  color: var(--color-text-secondary);
 }
 
 .studentDashboardWeakList {

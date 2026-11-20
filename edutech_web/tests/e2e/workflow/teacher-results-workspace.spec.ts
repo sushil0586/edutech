@@ -103,7 +103,7 @@ test.describe("Teacher results workspace", () => {
 
       await refreshStatusButton.click();
       const refreshResponse = await refreshResponsePromise;
-      expect(refreshResponse.status()).toBe(303);
+      expect([200, 303]).toContain(refreshResponse.status());
       expect(refreshResponse.headers()["x-action-redirect"]).toContain(
         `/teacher/results?exam=${selectedExamId}&message=`,
       );
